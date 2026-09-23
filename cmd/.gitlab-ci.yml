@@ -25,6 +25,8 @@ build_binaries:
     # opts уже подготовлен для будущих команд, но пока не используется.
     # Помечаем его использованным только в checkout runner'а, не меняя исходник.
     - sed -i 's/opts := config.DefaultOptions()/opts := config.DefaultOptions(); _ = opts/' cmd/root.go
+    # Импорт config в version.go тоже оставлен для будущего параметра opts.
+    - sed -i '/"gitlab.com\/1001n\/kapellmeister\/config"/d' cmd/version.go
     - mkdir -p dist
     - VERSION="${CI_COMMIT_TAG:-0.0.1-${CI_COMMIT_SHORT_SHA}}"
     - VERSION="${VERSION#v}"
