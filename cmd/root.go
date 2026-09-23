@@ -17,7 +17,7 @@ func Execute() error {
 
 	// Регистрация команд (имя функций)
 	rootCmd.AddCommand(
-		newVersionCmd(&buildInfo, /* &opts */),
+		newVersionCmd(&buildInfo, &opts),
 	)
 
 	return rootCmd.Execute()

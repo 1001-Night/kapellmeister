@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newVersionCmd(buildInfo *buildinfo.BuildInfo, /* opts *config.Options */) *cobra.Command {
+func newVersionCmd(buildInfo *buildinfo.BuildInfo, opts *config.Options) *cobra.Command {
 
 	VersionCmd := &cobra.Command{
 		Use:   "version",
