@@ -1,0 +1,69 @@
+workflow:
+  rules:
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+stages:
+  - build
+  - image
+
+default:
+  interruptible: true
+
+variables:
+  CGO_ENABLED: "0"
+  GOTOOLCHAIN: "local"
+
+build_binaries:
+  stage: build
+  image: golang:1.26.4-alpine3.23
+  script:
+    # В репозитории пока есть пустой cmd/TEST_get.go. Go не может разобрать
+    # пустой исходник, поэтому исключаем его только во временном checkout CI.
+    - if [ -f cmd/TEST_get.go ] && [ ! -s cmd/TEST_get.go ]; then mv cmd/TEST_get.go cmd/TEST_get.go.disabled; fi
+    # opts уже подготовлен для будущих команд, но пока не используется.
+    # Помечаем его использованным только в checkout runner'а, не меняя исходник.
+    - sed -i 's/opts := config.DefaultOptions()/opts := config.DefaultOptions(); _ = opts/' cmd/root.go
+    - mkdir -p dist
+    - VERSION="${CI_COMMIT_TAG:-0.0.1-${CI_COMMIT_SHORT_SHA}}"
+    - VERSION="${VERSION#v}"
+    - LDFLAGS="-s -w -X gitlab.com/1001n/kapellmeister/buildinfo.Version=${VERSION} -X gitlab.com/1001n/kapellmeister/buildinfo.Commit=${CI_COMMIT_SHA}"
+    - GOOS=linux GOARCH=amd64 go build -buildvcs=false -mod=readonly -trimpath -ldflags "$LDFLAGS" -o dist/kapellmeister .
+    - GOOS=windows GOARCH=amd64 go build -buildvcs=false -mod=readonly -trimpath -ldflags "$LDFLAGS" -o dist/kapellmeister.exe .
+    - ./dist/kapellmeister version
+  artifacts:
+    name: "kapellmeister-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - dist/kapellmeister
+      - dist/kapellmeister.exe
+    expire_in: 30 days
+
+publish_container:
+  stage: image
+  image: docker:29-cli
+  services:
+    - name: docker:29-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: /certs/client
+  needs:
+    - job: build_binaries
+      artifacts: true
+  before_script:
+    - until docker info >/dev/null 2>&1; do sleep 1; done
+    - printf '%s' "$CI_REGISTRY_PASSWORD" | docker login --username "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+  script:
+    - mkdir -p image-context
+    - cp dist/kapellmeister image-context/kapellmeister
+    - printf '%s\n' 'FROM alpine:3.23' 'RUN apk add --no-cache ca-certificates' 'COPY kapellmeister /usr/local/bin/kapellmeister' 'RUN chmod 0755 /usr/local/bin/kapellmeister' 'USER 65532:65532' 'WORKDIR /work' 'ENTRYPOINT ["/usr/local/bin/kapellmeister"]' > image-context/Dockerfile
+    - IMAGE_TAG="${CI_COMMIT_TAG:-latest}"
+    - docker build --pull --label "org.opencontainers.image.source=${CI_PROJECT_URL}" --label "org.opencontainers.image.revision=${CI_COMMIT_SHA}" --tag "${CI_REGISTRY_IMAGE}:${IMAGE_TAG}" image-context
+    - docker run --rm "${CI_REGISTRY_IMAGE}:${IMAGE_TAG}" version
+    - docker push "${CI_REGISTRY_IMAGE}:${IMAGE_TAG}"
+  rules:
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
