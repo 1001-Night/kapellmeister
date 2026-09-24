@@ -18,6 +18,8 @@ func Execute() error {
 	// Регистрация команд (имя функций)
 	rootCmd.AddCommand(
 		newVersionCmd(&buildInfo, &opts),
+		newGetAllPodsCmd(),
+		newInstallCmd(),
 	)
 
 	return rootCmd.Execute()

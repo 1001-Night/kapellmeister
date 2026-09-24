@@ -48,14 +48,18 @@ build_binaries:
     - VERSION="${CI_COMMIT_TAG:-0.0.1-${CI_COMMIT_SHORT_SHA}}"
     - VERSION="${VERSION#v}"
     - LDFLAGS="-s -w -X gitlab.com/1001n/kapellmeister/buildinfo.Version=${VERSION} -X gitlab.com/1001n/kapellmeister/buildinfo.Commit=${CI_COMMIT_SHA}"
-    - GOOS=linux GOARCH=amd64 go build -buildvcs=false -mod=readonly -trimpath -ldflags "$LDFLAGS" -o dist/kapellmeister .
-    - GOOS=windows GOARCH=amd64 go build -buildvcs=false -mod=readonly -trimpath -ldflags "$LDFLAGS" -o dist/kapellmeister.exe .
-    - ./dist/kapellmeister version
+    - GOOS=linux GOARCH=amd64 go build -buildvcs=false -mod=readonly -trimpath -ldflags "$LDFLAGS" -o dist/kapellmeister-linux-amd64 .
+    - GOOS=windows GOARCH=amd64 go build -buildvcs=false -mod=readonly -trimpath -ldflags "$LDFLAGS" -o dist/kapellmeister-windows-amd64.exe .
+    - (cd dist && sha256sum kapellmeister-linux-amd64 > kapellmeister-linux-amd64.sha256)
+    - (cd dist && sha256sum kapellmeister-windows-amd64.exe > kapellmeister-windows-amd64.exe.sha256)
+    - ./dist/kapellmeister-linux-amd64 version
   artifacts:
     name: "kapellmeister-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
     paths:
-      - dist/kapellmeister
-      - dist/kapellmeister.exe
+      - dist/kapellmeister-linux-amd64
+      - dist/kapellmeister-linux-amd64.sha256
+      - dist/kapellmeister-windows-amd64.exe
+      - dist/kapellmeister-windows-amd64.exe.sha256
     expire_in: 30 days
 
 publish_container:
@@ -92,3 +96,28 @@ publish_container:
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+publish_release:
+  stage: publish
+  interruptible: false
+  variables:
+    GLAB_ENABLE_CI_AUTOLOGIN: "true"
+  image:
+    name: registry.gitlab.com/gitlab-org/cli:latest@sha256:79223ad3fa6e3c3226119ac5d0b73e55f1b909e6d5bbf8469726480723b63ba8
+    entrypoint: [""]
+  needs:
+    - job: build_binaries
+      artifacts: true
+  script:
+    - |
+      glab release create "$CI_COMMIT_TAG" \
+        --name "Kapellmeister $CI_COMMIT_TAG" \
+        --notes "Kapellmeister $CI_COMMIT_TAG" \
+        --use-package-registry \
+        --package-name kapellmeister \
+        "dist/kapellmeister-linux-amd64#Linux x86_64#package" \
+        "dist/kapellmeister-linux-amd64.sha256#Linux x86_64 SHA-256#package" \
+        "dist/kapellmeister-windows-amd64.exe#Windows x86_64#package" \
+        "dist/kapellmeister-windows-amd64.exe.sha256#Windows x86_64 SHA-256#package"
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'

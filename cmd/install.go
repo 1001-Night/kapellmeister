@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"gitlab.com/1001n/kapellmeister/fs"
 )
 
 func newInstallCmd() *cobra.Command {
-	var force bool
 
 	installCmd := &cobra.Command{
 		Use:   "install",
@@ -15,18 +15,9 @@ func newInstallCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInstall(force)
+			return fs.InstallChart()
 		},
 	}
-
-	installCmd.Flags().BoolVarP(
-		&force,
-		"force",
-		"f",
-		false,
-		"принудительная установка",
-	)
-
 	return installCmd
 }
 

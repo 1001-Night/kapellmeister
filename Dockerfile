@@ -8,7 +8,7 @@ LABEL org.opencontainers.image.source="$SOURCE" \
 
 RUN mkdir /work && chown 65532:65532 /work
 
-COPY --chown=65532:65532 --chmod=0755 dist/kapellmeister /usr/local/bin/kapellmeister
+COPY --chown=65532:65532 --chmod=0755 dist/kapellmeister-linux-amd64 /usr/local/bin/kapellmeister
 
 USER 65532:65532
 WORKDIR /work
