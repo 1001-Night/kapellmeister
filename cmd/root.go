@@ -19,7 +19,9 @@ func Execute() error {
 	rootCmd.AddCommand(
 		newVersionCmd(&buildInfo, &opts),
 		newGetAllPodsCmd(),
-		newInstallCmd(),
+		newInstallCmd(&opts),
+		newUninstallCmd(&opts),
+		newUpdateCmd(&opts),
 	)
 
 	return rootCmd.Execute()

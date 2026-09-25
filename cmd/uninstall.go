@@ -1,13 +1,12 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
+	"gitlab.com/1001n/kapellmeister/config"
+	"gitlab.com/1001n/kapellmeister/helm"
 )
 
-func newUninstallCmd() *cobra.Command {
-	var purge bool
+func newUninstallCmd(opts *config.Options) *cobra.Command {
 
 	uninstallCmd := &cobra.Command{
 		Use:   "uninstall",
@@ -15,23 +14,17 @@ func newUninstallCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUninstall(purge)
+			client, err := helm.New(*opts)
+			if err != nil {
+				return err
+			}
+
+			err = client.Uninstall(cmd.Context(), "test-ngix")
+			if err != nil {
+				return err
+			}
+			return nil
 		},
 	}
-
-	uninstallCmd.Flags().BoolVar(
-		&purge,
-		"purge",
-		false,
-		"также удалить конфигурацию и данные",
-	)
-
 	return uninstallCmd
-}
-
-func runUninstall(purge bool) error {
-
-	fmt.Printf("Удаление приложения, purge=%v\n", purge)
-
-	return nil
 }
