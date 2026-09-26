@@ -32,7 +32,7 @@ func (c *Client) Uninstall(ctx context.Context) error {
 		return err
 	}
 
-	_, err := uninstall.Run(c.Options.Release)
+	_, err = uninstall.Run(c.Options.Release)
 	if err != nil {
 		return fmt.Errorf("uninstall release: %w", err)
 	}

@@ -19,7 +19,7 @@ func newUninstallCmd(opts *config.Options) *cobra.Command {
 				return err
 			}
 
-			err = client.Uninstall(cmd.Context(), "test-ngix")
+			err = client.Uninstall(cmd.Context())
 			if err != nil {
 				return err
 			}

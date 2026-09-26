@@ -16,18 +16,6 @@ func (c *Client) Install(
 	ctx context.Context,
 	values map[string]interface{},
 ) (*release.Release, error) {
-
-	err := c.CanI(
-		ctx,
-		"create",
-		"apps",
-		"deployments",
-		c.Options.Namespace,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	install := action.NewInstall(c.ActionConfig)
 	install.SetRegistryClient(c.Registry)
 
@@ -49,6 +37,19 @@ func (c *Client) Install(
 	ch, err := loader.Load(chartPath)
 	if err != nil {
 		return nil, fmt.Errorf("load chart: %w", err)
+	}
+
+	manifest, err := c.RenderInstall(ctx, ch, values)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.CheckPermissions(
+		ctx,
+		OperationInstall,
+		manifest,
+	); err != nil {
+		return nil, err
 	}
 
 	rel, err := install.RunWithContext(ctx, ch, values)

@@ -38,6 +38,19 @@ func (c *Client) Update(
 		return nil, fmt.Errorf("load chart: %w", err)
 	}
 
+	manifest, err := c.RenderUpdate(ctx, ch, values)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.CheckPermissions(
+		ctx,
+		OperationUpdate,
+		manifest,
+	); err != nil {
+		return nil, err
+	}
+
 	rel, err := upgrade.RunWithContext(ctx, c.Options.Release, ch, values)
 	if err != nil {
 		return nil, fmt.Errorf("upgrade release: %w", err)
