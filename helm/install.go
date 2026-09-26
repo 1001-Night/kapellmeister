@@ -3,7 +3,6 @@ package helm
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -34,10 +33,10 @@ func (c *Client) Install(
 	}
 
 	if err := c.CheckPermissions(
-	ctx,
-	OperationInstall,
-	manifest,
-	"",
+		ctx,
+		OperationInstall,
+		manifest,
+		"",
 	); err != nil {
 		return nil, err
 	}

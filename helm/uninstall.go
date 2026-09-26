@@ -3,7 +3,6 @@ package helm
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"helm.sh/helm/v3/pkg/action"
 )
@@ -30,7 +29,7 @@ func (c *Client) Uninstall(ctx context.Context) error {
 		ctx,
 		OperationUninstall,
 		"",
-		releaseManifest(rel),
+		manifest,
 	); err != nil {
 		return err
 	}

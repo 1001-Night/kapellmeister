@@ -3,7 +3,6 @@ package helm
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
