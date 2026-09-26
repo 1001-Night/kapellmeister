@@ -43,10 +43,18 @@ func (c *Client) Update(
 		return nil, err
 	}
 
+	get := action.NewGet(c.ActionConfig)
+
+	currentRelease, err := get.Run(c.Options.Release)
+	if err != nil {
+		return nil, fmt.Errorf("get current release: %w", err)
+	}
+
 	if err := c.CheckPermissions(
 		ctx,
 		OperationUpdate,
 		manifest,
+		releaseManifest(currentRelease),
 	); err != nil {
 		return nil, err
 	}

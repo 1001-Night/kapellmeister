@@ -34,9 +34,10 @@ func (c *Client) Install(
 	}
 
 	if err := c.CheckPermissions(
-		ctx,
-		OperationInstall,
-		manifest,
+	ctx,
+	OperationInstall,
+	manifest,
+	"",
 	); err != nil {
 		return nil, err
 	}

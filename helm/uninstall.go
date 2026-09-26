@@ -30,7 +30,7 @@ func (c *Client) Uninstall(ctx context.Context) error {
 		ctx,
 		OperationUninstall,
 		"",
-		manifest,
+		releaseManifest(rel),
 	); err != nil {
 		return err
 	}

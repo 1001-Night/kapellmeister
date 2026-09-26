@@ -70,7 +70,8 @@ func (c *Client) CanI(
 func (c *Client) CheckPermissions(
 	ctx context.Context,
 	operation Operation,
-	manifest string,
+	desiredManifest string,
+	currentManifest string,
 ) error {
 	verbs, err := verbsFor(operation)
 	if err != nil {
