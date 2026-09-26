@@ -8,10 +8,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 )
 
-func (c *Client) Uninstall(
-	ctx context.Context,
-	releaseName string,
-) error {
+func (c *Client) Uninstall(ctx context.Context) error {
 
 	uninstall := action.NewUninstall(c.ActionConfig)
 
@@ -20,7 +17,22 @@ func (c *Client) Uninstall(
 	uninstall.IgnoreNotFound = false
 	uninstall.KeepHistory = false
 
-	_, err := uninstall.Run(releaseName)
+	get := action.NewGet(c.ActionConfig)
+
+	rel, err := get.Run(c.Options.Release)
+	if err != nil {
+		return err
+	}
+
+	if err := c.CheckPermissions(
+		ctx,
+		OperationUninstall,
+		rel.Manifest,
+	); err != nil {
+		return err
+	}
+
+	_, err := uninstall.Run(c.Options.Release)
 	if err != nil {
 		return fmt.Errorf("uninstall release: %w", err)
 	}
