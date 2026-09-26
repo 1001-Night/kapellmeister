@@ -16,18 +16,7 @@ func (c *Client) Install(
 	ctx context.Context,
 	values map[string]interface{},
 ) (*release.Release, error) {
-	install := action.NewInstall(c.ActionConfig)
-	install.SetRegistryClient(c.Registry)
-
-	install.ReleaseName = c.Options.Release
-	install.Namespace = c.Options.Namespace
-	install.CreateNamespace = true
-	install.Version = c.Options.Version
-
-	install.Wait = true
-	install.WaitForJobs = true
-	install.Atomic = true
-	install.Timeout = c.Options.Timeout
+	install := c.newInstallAction()
 
 	chartPath, err := install.LocateChart(config.ChartRef, c.Settings)
 	if err != nil {
@@ -58,4 +47,21 @@ func (c *Client) Install(
 	}
 
 	return rel, nil
+}
+
+func (c *Client) newInstallAction() *action.Install {
+	install := action.NewInstall(c.ActionConfig)
+	install.SetRegistryClient(c.Registry)
+
+	install.ReleaseName = c.Options.Release
+	install.Namespace = c.Options.Namespace
+	install.Version = c.Options.Version
+	install.CreateNamespace = true
+
+	install.Wait = true
+	install.WaitForJobs = true
+	install.Atomic = true
+	install.Timeout = c.Options.Timeout
+
+	return install
 }

@@ -24,10 +24,13 @@ func (c *Client) Uninstall(ctx context.Context) error {
 		return err
 	}
 
+	manifest := releaseManifest(rel)
+
 	if err := c.CheckPermissions(
 		ctx,
 		OperationUninstall,
-		rel.Manifest,
+		"",
+		manifest,
 	); err != nil {
 		return err
 	}

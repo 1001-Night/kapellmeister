@@ -2,8 +2,8 @@ package helm
 
 import (
 	"context"
-	"strings"
 	"fmt"
+	"strings"
 
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
@@ -15,16 +15,14 @@ func (c *Client) RenderInstall(
 	ch *chart.Chart,
 	values map[string]interface{},
 ) (string, error) {
-	render := action.NewInstall(c.ActionConfig)
-	render.SetRegistryClient(c.Registry)
-
-	render.ReleaseName = c.Options.Release
-	render.Namespace = c.Options.Namespace
-	render.Version = c.Options.Version
-	render.IncludeCRDs = true
+	render := c.newInstallAction()
 
 	render.DryRun = true
-	render.ClientOnly = true
+	render.DryRunOption = "server"
+
+	render.Wait = false
+	render.WaitForJobs = false
+	render.Atomic = false
 
 	rel, err := render.RunWithContext(ctx, ch, values)
 	if err != nil {
