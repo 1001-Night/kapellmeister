@@ -4,7 +4,8 @@ import (
 	"github.com/spf13/cobra"
 	"gitlab.com/1001n/kapellmeister/buildinfo"
 	"gitlab.com/1001n/kapellmeister/config"
-)	
+)
+
 func Execute() error {
 
 	buildInfo := buildinfo.BuildOptions()
@@ -18,7 +19,6 @@ func Execute() error {
 	// Регистрация команд (имя функций)
 	rootCmd.AddCommand(
 		newVersionCmd(&buildInfo, &opts),
-		newGetAllPodsCmd(),
 		newInstallCmd(&opts),
 		newUninstallCmd(&opts),
 		newUpdateCmd(&opts),

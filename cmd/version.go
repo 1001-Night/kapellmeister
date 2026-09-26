@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
 	"gitlab.com/1001n/kapellmeister/buildinfo"
 	"gitlab.com/1001n/kapellmeister/config"
-	"github.com/spf13/cobra"
 )
 
 func newVersionCmd(buildInfo *buildinfo.BuildInfo, opts *config.Options) *cobra.Command {
@@ -17,7 +17,7 @@ func newVersionCmd(buildInfo *buildinfo.BuildInfo, opts *config.Options) *cobra.
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("Kapellmeister: v%s, commit %s", buildInfo.Version, buildInfo.Commit)
-			
+
 			return nil
 		},
 	}

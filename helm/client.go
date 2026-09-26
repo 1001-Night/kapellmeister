@@ -8,15 +8,17 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/registry"
+	"k8s.io/client-go/kubernetes"
 
 	"gitlab.com/1001n/kapellmeister/config"
 )
 
 type Client struct {
-    ActionConfig *action.Configuration
-    Settings     *cli.EnvSettings
-    Registry     *registry.Client
-    Options      config.Options
+	ActionConfig *action.Configuration
+	Settings     *cli.EnvSettings
+	Registry     *registry.Client
+	KubeClient   kubernetes.Interface
+	Options      config.Options
 }
 
 func New(opts config.Options) (*Client, error) {
@@ -58,6 +60,7 @@ func New(opts config.Options) (*Client, error) {
 		ActionConfig: actionConfig,
 		Settings:     settings,
 		Registry:     regClient,
-		Options: opts,
+		KubeClient:   kubeClient,
+		Options:      opts,
 	}, nil
 }

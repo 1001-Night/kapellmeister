@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
- 
+
 	"helm.sh/helm/v3/pkg/action"
 )
 
@@ -12,9 +12,9 @@ func (c *Client) Uninstall(
 	ctx context.Context,
 	releaseName string,
 ) error {
-	
+
 	uninstall := action.NewUninstall(c.ActionConfig)
- 
+
 	uninstall.Wait = true
 	uninstall.Timeout = 5 * time.Minute
 	uninstall.IgnoreNotFound = false
