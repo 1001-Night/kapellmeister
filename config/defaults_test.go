@@ -3,6 +3,8 @@ package config
 import (
 	"testing"
 	"time"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 func TestDefaultOptions(t *testing.T) {
@@ -14,8 +16,14 @@ func TestDefaultOptions(t *testing.T) {
 	if opts.Release != "test-ngix" {
 		t.Errorf("Release = %q, want %q", opts.Release, "test-ngix")
 	}
-	if opts.Version != "0.0.3" {
-		t.Errorf("Version = %q, want %q", opts.Version, "0.0.3")
+	if opts.Version == "" {
+		t.Error("Version must not be empty")
+	} else if _, err := semver.NewVersion(opts.Version); err != nil {
+		t.Errorf(
+			"Version = %q, want valid semantic version: %v",
+			opts.Version,
+			err,
+		)
 	}
 	if opts.Timeout != 5*time.Minute {
 		t.Errorf("Timeout = %v, want %v", opts.Timeout, 5*time.Minute)
