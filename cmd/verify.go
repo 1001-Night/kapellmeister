@@ -31,17 +31,55 @@ func newVerifyCmd(
 				return err
 			}
 
-			resourceCount, err := client.VerifyResources(rel)
+			checks, err := client.VerifyResources(
+				cmd.Context(),
+				rel,
+			)
 			if err != nil {
 				return err
 			}
 
-			reporter.Success(fmt.Sprintf(
-				"Release=%s status=%s revision=%d resources=%d",
-				rel.Name,
-				rel.Info.Status,
-				rel.Version,
-				resourceCount,
+			reporter.Section("Release")
+			reporter.Field("Name", rel.Name)
+			reporter.Passed("Status", string(rel.Info.Status))
+			reporter.Field("Revision", rel.Version)
+
+			if rel.Chart != nil && rel.Chart.Metadata != nil {
+				reporter.Field(
+					"Chart",
+					fmt.Sprintf(
+						"%s %s",
+						rel.Chart.Metadata.Name,
+						rel.Chart.Metadata.Version,
+					),
+				)
+			}
+
+			reporter.Section("Resources")
+
+			failed := 0
+
+			for _, check := range checks {
+				if check.Passed {
+					reporter.Passed(check.Name, check.Detail)
+					continue
+				}
+
+				reporter.Failed(check.Name, check.Detail)
+				failed++
+			}
+
+			if failed > 0 {
+				return fmt.Errorf(
+					"verification failed: %d of %d resource checks failed",
+					failed,
+					len(checks),
+				)
+			}
+
+			reporter.Complete(fmt.Sprintf(
+				"Verification passed: %d resources checked",
+				len(checks),
 			))
 
 			return nil

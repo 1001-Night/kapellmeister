@@ -13,8 +13,10 @@ import (
 )
 
 const (
+	blue  = "\x1b[1;34m"
 	green = "\x1b[32m"
 	red   = "\x1b[31m"
+	dim   = "\x1b[2m"
 	reset = "\x1b[0m"
 )
 
@@ -164,4 +166,101 @@ func (r *Reporter) writeConsole(color string, level string, message string) {
 
 func (r *Reporter) isVerbose() bool {
 	return r.verbose != nil && *r.verbose
+}
+
+func (r *Reporter) Section(title string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.stopProgressLocked()
+	r.writeFile("INFO", title)
+
+	fmt.Fprintf(
+		os.Stderr,
+		"\n%s%s%s\n",
+		blue,
+		title,
+		reset,
+	)
+}
+
+func (r *Reporter) Field(label string, value any) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	text := fmt.Sprint(value)
+	r.writeFile("INFO", fmt.Sprintf("%s: %s", label, text))
+
+	fmt.Fprintf(
+		os.Stderr,
+		"  %s%-12s%s %s\n",
+		dim,
+		label,
+		reset,
+		text,
+	)
+}
+
+func (r *Reporter) Passed(label string, detail string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.writeFile(
+		"PASS",
+		fmt.Sprintf("%s: %s", label, detail),
+	)
+
+	fmt.Fprintf(
+		os.Stderr,
+		"  %s✓%s %-24s %s\n",
+		green,
+		reset,
+		label,
+		detail,
+	)
+}
+
+func (r *Reporter) Failed(label string, detail string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.writeFile(
+		"FAIL",
+		fmt.Sprintf("%s: %s", label, detail),
+	)
+
+	fmt.Fprintf(
+		os.Stderr,
+		"  %s✗%s %-24s %s\n",
+		red,
+		reset,
+		label,
+		detail,
+	)
+}
+
+func (r *Reporter) Complete(message string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.stopProgressLocked()
+	r.writeFile("PASS", message)
+
+	fmt.Fprintf(
+		os.Stderr,
+		"\n%s✓ %s%s\n",
+		green,
+		message,
+		reset,
+	)
+}
+
+func (r *Reporter) stopProgressLocked() {
+	if !r.started {
+		return
+	}
+
+	r.spinner.FinalMSG = ""
+	r.spinner.Stop()
+	r.started = false
 }
