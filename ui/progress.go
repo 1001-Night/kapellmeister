@@ -13,11 +13,12 @@ import (
 )
 
 const (
-	blue  = "\x1b[1;34m"
-	green = "\x1b[32m"
-	red   = "\x1b[31m"
-	dim   = "\x1b[2m"
-	reset = "\x1b[0m"
+	blue   = "\x1b[1;34m"
+	green  = "\x1b[32m"
+	yellow = "\x1b[33m"
+	red    = "\x1b[31m"
+	dim    = "\x1b[2m"
+	reset  = "\x1b[0m"
 )
 
 type Reporter struct {
@@ -233,6 +234,25 @@ func (r *Reporter) Failed(label string, detail string) {
 		os.Stderr,
 		"  %s✗%s %-24s %s\n",
 		red,
+		reset,
+		label,
+		detail,
+	)
+}
+
+func (r *Reporter) Warning(label string, detail string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.writeFile(
+		"WARN",
+		fmt.Sprintf("%s: %s", label, detail),
+	)
+
+	fmt.Fprintf(
+		os.Stderr,
+		"  %s!%s %-24s %s\n",
+		yellow,
 		reset,
 		label,
 		detail,

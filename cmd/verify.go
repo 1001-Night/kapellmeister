@@ -31,7 +31,7 @@ func newVerifyCmd(
 				return err
 			}
 
-			checks, err := client.VerifyResources(
+			checks, err := client.Verify(
 				cmd.Context(),
 				rel,
 			)
@@ -55,31 +55,42 @@ func newVerifyCmd(
 				)
 			}
 
-			reporter.Section("Resources")
-
+			passed := 1
+			warnings := 0
 			failed := 0
+			currentSection := ""
 
 			for _, check := range checks {
-				if check.Passed {
-					reporter.Passed(check.Name, check.Detail)
-					continue
+				if check.Section != currentSection {
+					reporter.Section(check.Section)
+					currentSection = check.Section
 				}
 
-				reporter.Failed(check.Name, check.Detail)
-				failed++
+				switch check.Status {
+				case helm.CheckPassed:
+					reporter.Passed(check.Name, check.Detail)
+					passed++
+				case helm.CheckWarning:
+					reporter.Warning(check.Name, check.Detail)
+					warnings++
+				default:
+					reporter.Failed(check.Name, check.Detail)
+					failed++
+				}
 			}
 
 			if failed > 0 {
 				return fmt.Errorf(
-					"verification failed: %d of %d resource checks failed",
+					"verification failed: %d checks failed, %d warnings",
 					failed,
-					len(checks),
+					warnings,
 				)
 			}
 
 			reporter.Complete(fmt.Sprintf(
-				"Verification passed: %d resources checked",
-				len(checks),
+				"Verification passed: %d checks, %d warnings",
+				passed,
+				warnings,
 			))
 
 			return nil

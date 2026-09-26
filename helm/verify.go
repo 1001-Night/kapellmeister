@@ -42,16 +42,71 @@ func (c *Client) VerifyRelease() (*release.Release, error) {
 	return rel, nil
 }
 
-type ResourceCheck struct {
-	Name   string
-	Detail string
-	Passed bool
+type CheckResult struct {
+	Section string
+	Name    string
+	Detail  string
+	Status  CheckStatus
+}
+
+type CheckStatus string
+
+const (
+	CheckPassed  CheckStatus = "passed"
+	CheckWarning CheckStatus = "warning"
+	CheckFailed  CheckStatus = "failed"
+)
+
+func (c *Client) Verify(
+	ctx context.Context,
+	rel *release.Release,
+) ([]CheckResult, error) {
+	checks := []CheckResult{c.verifyKubernetesVersion(rel)}
+
+	apiChecks, err := c.verifyAPIs(rel)
+	if err != nil {
+		return nil, err
+	}
+	checks = append(checks, apiChecks...)
+
+	if hasFailedChecks(apiChecks) {
+		return checks, nil
+	}
+
+	resourceChecks, err := c.VerifyResources(ctx, rel)
+	if err != nil {
+		return nil, err
+	}
+	checks = append(checks, resourceChecks...)
+
+	podChecks, err := c.verifyPods(ctx, rel)
+	if err != nil {
+		return nil, err
+	}
+	checks = append(checks, podChecks...)
+
+	eventChecks, err := c.verifyEvents(ctx, rel)
+	if err != nil {
+		return nil, err
+	}
+	checks = append(checks, eventChecks...)
+
+	return checks, nil
+}
+
+func hasFailedChecks(checks []CheckResult) bool {
+	for _, check := range checks {
+		if check.Status == CheckFailed {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Client) VerifyResources(
 	ctx context.Context,
 	rel *release.Release,
-) ([]ResourceCheck, error) {
+) ([]CheckResult, error) {
 	if strings.TrimSpace(rel.Manifest) == "" {
 		return nil, fmt.Errorf(
 			"release %q has an empty manifest",
@@ -70,14 +125,16 @@ func (c *Client) VerifyResources(
 		)
 	}
 
-	checks := make([]ResourceCheck, 0, len(resources))
+	checks := make([]CheckResult, 0, len(resources))
 
 	for _, resource := range resources {
-		check := ResourceCheck{
-			Name: resource.ObjectName(),
+		check := CheckResult{
+			Section: "Resources",
+			Name:    resource.ObjectName(),
 		}
 
 		if err := resource.Get(); err != nil {
+			check.Status = CheckFailed
 			check.Detail = err.Error()
 
 			if resource.Namespace != "" {
@@ -92,7 +149,7 @@ func (c *Client) VerifyResources(
 			continue
 		}
 
-		check.Passed = true
+		check.Status = CheckPassed
 		check.Detail = "exists"
 
 		gvk := resource.Mapping.GroupVersionKind
@@ -105,7 +162,21 @@ func (c *Client) VerifyResources(
 			)
 
 			if err != nil {
-				check.Passed = false
+				check.Status = CheckFailed
+				check.Detail = err.Error()
+			} else {
+				check.Detail = detail
+			}
+		}
+
+		if gvk.Group == "" && gvk.Kind == "Service" {
+			detail, err := c.verifyServiceEndpoints(
+				ctx,
+				resource.Namespace,
+				resource.Name,
+			)
+			if err != nil {
+				check.Status = CheckFailed
 				check.Detail = err.Error()
 			} else {
 				check.Detail = detail
