@@ -2,8 +2,7 @@
 
 ## Установка
 
-Сейчас поддерживается Linux x86_64. Последний релиз устанавливается одной командой:
-
+Установка последней версии:
 ```sh
 curl -fsSL https://gitlab.com/1001n/kapellmeister/-/raw/main/install.sh | sh
 ```
@@ -14,7 +13,7 @@ curl -fsSL https://gitlab.com/1001n/kapellmeister/-/raw/main/install.sh | sh
 curl -fsSL https://gitlab.com/1001n/kapellmeister/-/raw/main/install.sh | sh -s -- --version v1.2.3
 ```
 
-Установка без `sudo`, например в пользовательский каталог:
+Установка без `sudo` (пример):
 
 ```sh
 mkdir -p "$HOME/.local/bin"
@@ -23,14 +22,40 @@ curl -fsSL https://gitlab.com/1001n/kapellmeister/-/raw/main/install.sh | sh -s 
 
 В последнем случае каталог `$HOME/.local/bin` должен входить в `PATH`.
 
-Установщик проверяет SHA-256 перед копированием бинарника. Пока в проекте нет ни одного
-GitLab Release, он использует артефакт последней успешной сборки ветки `main`.
+## Использование
 
-## Публикация релиза
-
-Релиз и его установочные файлы публикуются CI автоматически при создании semver-тега:
-
+Вывести установленную версию Kapellmeisterctl, а так же Kubernetes (если обнаружен)
 ```sh
-git tag v1.0.0
-git push origin v1.0.0
+kapellmeister version [flags: --kubeconfig] 
+```
+
+Установить Kapellmeister
+```sh
+kapellmeister install
+    [flags:
+        --version string
+        -f path/to/values.yaml
+        --kubeconfig /path/to/kubeconfig
+        -v 
+    ]
+```
+
+Обновить Kapellmeister
+```sh
+kapellmeister update
+    [flags:
+        --version string
+        -f path/to/values.yaml
+        --kubeconfig /path/to/kubeconfig
+        -v
+    ]
+```
+
+Удалить Kapellmeister
+```sh
+kapellmeister uninstall
+    [flags:
+        --kubeconfig /path/to/kubeconfig
+        -v
+    ]
 ```
