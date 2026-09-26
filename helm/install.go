@@ -27,7 +27,7 @@ func (c *Client) Install(
 	install.Wait = true
 	install.WaitForJobs = true
 	install.Atomic = true
-	install.Timeout = 5 * time.Minute
+	install.Timeout = c.Options.Timeout
 
 	chartPath, err := install.LocateChart(config.ChartRef, c.Settings)
 	if err != nil {

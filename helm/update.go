@@ -26,7 +26,7 @@ func (c *Client) Update(
 	upgrade.Wait = true
 	upgrade.WaitForJobs = true
 	upgrade.Atomic = true
-	upgrade.Timeout = 5 * time.Minute
+	upgrade.Timeout = c.Options.Timeout
 
 	chartPath, err := upgrade.LocateChart(config.ChartRef, c.Settings)
 	if err != nil {

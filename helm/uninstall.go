@@ -13,7 +13,7 @@ func (c *Client) Uninstall(ctx context.Context) error {
 	uninstall := action.NewUninstall(c.ActionConfig)
 
 	uninstall.Wait = true
-	uninstall.Timeout = 5 * time.Minute
+	uninstall.Timeout = c.Options.Timeout
 	uninstall.IgnoreNotFound = false
 	uninstall.KeepHistory = false
 
