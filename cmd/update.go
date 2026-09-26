@@ -6,16 +6,19 @@ import (
 	"github.com/spf13/cobra"
 	"gitlab.com/1001n/kapellmeister/config"
 	"gitlab.com/1001n/kapellmeister/helm"
+	"gitlab.com/1001n/kapellmeister/ui"
 )
 
-func newUpdateCmd(opts *config.Options) *cobra.Command {
+func newUpdateCmd(opts *config.Options, reporter *ui.Reporter) *cobra.Command {
 	return &cobra.Command{
 		Use:   "update",
 		Short: "Обновить приложение",
 		Args:  cobra.NoArgs,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := helm.New(*opts)
+			reporter.Start("Updating application")
+
+			client, err := helm.New(*opts, reporter)
 			if err != nil {
 				return err
 			}
@@ -27,7 +30,11 @@ func newUpdateCmd(opts *config.Options) *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("updated release=%s revision=%d\n", rel.Name, rel.Version)
+			reporter.Success(fmt.Sprintf(
+				"Updated release=%s revision=%d",
+				rel.Name,
+				rel.Version,
+			))
 			return nil
 		},
 	}

@@ -3,6 +3,7 @@ module gitlab.com/1001n/kapellmeister
 go 1.26.4
 
 require (
+	github.com/briandowns/spinner v1.23.2
 	github.com/spf13/cobra v1.10.2
 	helm.sh/helm/v3 v3.21.3
 	k8s.io/api v0.36.2

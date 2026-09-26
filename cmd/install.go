@@ -6,9 +6,10 @@ import (
 	"github.com/spf13/cobra"
 	"gitlab.com/1001n/kapellmeister/config"
 	"gitlab.com/1001n/kapellmeister/helm"
+	"gitlab.com/1001n/kapellmeister/ui"
 )
 
-func newInstallCmd(opts *config.Options) *cobra.Command {
+func newInstallCmd(opts *config.Options, reporter *ui.Reporter) *cobra.Command {
 
 	return &cobra.Command{
 		Use:   "install",
@@ -16,7 +17,9 @@ func newInstallCmd(opts *config.Options) *cobra.Command {
 		Args:  cobra.NoArgs,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := helm.New(*opts)
+			reporter.Start("Installing application")
+
+			client, err := helm.New(*opts, reporter)
 			if err != nil {
 				return err
 			}
@@ -28,7 +31,11 @@ func newInstallCmd(opts *config.Options) *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("installed release=%s revision=%d\n", rel.Name, rel.Version)
+			reporter.Success(fmt.Sprintf(
+				"Installed release=%s revision=%d",
+				rel.Name,
+				rel.Version,
+			))
 			return nil
 		},
 	}

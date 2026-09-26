@@ -2,7 +2,7 @@ package helm
 
 import (
 	"fmt"
-	"log"
+	"io"
 	"os"
 
 	"helm.sh/helm/v3/pkg/action"
@@ -13,6 +13,11 @@ import (
 	"gitlab.com/1001n/kapellmeister/config"
 )
 
+type Logger interface {
+	io.Writer
+	Printf(format string, args ...any)
+}
+
 type Client struct {
 	ActionConfig *action.Configuration
 	Settings     *cli.EnvSettings
@@ -21,7 +26,7 @@ type Client struct {
 	Options      config.Options
 }
 
-func New(opts config.Options) (*Client, error) {
+func New(opts config.Options, logger Logger) (*Client, error) {
 	settings := cli.New()
 	settings.SetNamespace(opts.Namespace)
 
@@ -34,11 +39,11 @@ func New(opts config.Options) (*Client, error) {
 	if user != "" && token != "" {
 		regClient, err = registry.NewClient(
 			registry.ClientOptBasicAuth(user, token),
-			registry.ClientOptWriter(os.Stderr),
+			registry.ClientOptWriter(logger),
 		)
 	} else {
 		regClient, err = registry.NewClient(
-			registry.ClientOptWriter(os.Stderr),
+			registry.ClientOptWriter(logger),
 		)
 	}
 	if err != nil {
@@ -50,7 +55,7 @@ func New(opts config.Options) (*Client, error) {
 		settings.RESTClientGetter(),
 		opts.Namespace,
 		os.Getenv("HELM_DRIVER"),
-		log.Printf,
+		logger.Printf,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("init action config: %w", err)

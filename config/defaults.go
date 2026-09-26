@@ -11,6 +11,7 @@ type Options struct {
 	Release    string
 	Version    string
 	Timeout    time.Duration
+	Verbose    bool
 	LogLevel   string
 	Output     string
 	ReportFile string
