@@ -109,8 +109,13 @@ publish_release:
     - job: build_binaries
       artifacts: true
   script:
+    - test -x dist/kapellmeister-linux-amd64
+    - test -f dist/kapellmeister-windows-amd64.exe
+    - test -f dist/kapellmeister-linux-amd64.sha256
+    - test -f dist/kapellmeister-windows-amd64.exe.sha256
     - |
       glab release create "$CI_COMMIT_TAG" \
+        --ref "$CI_COMMIT_SHA" \
         --name "Kapellmeister $CI_COMMIT_TAG" \
         --notes "Kapellmeister $CI_COMMIT_TAG" \
         --use-package-registry \
