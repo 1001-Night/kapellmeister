@@ -42,6 +42,7 @@ func Execute() error {
 		newInstallCmd(&opts, reporter),
 		newUninstallCmd(&opts, reporter),
 		newUpdateCmd(&opts, reporter),
+		newVerifyCmd(&opts, reporter),
 	)
 
 	err = rootCmd.Execute()

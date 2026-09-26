@@ -59,3 +59,11 @@ kapellmeister uninstall
         -v
     ]
 ```
+
+Проверить наличие Kapellmeister
+```sh
+kapellmeister verify
+    [flags:
+        --kubeconfig /path/to/kubeconfig
+    ]
+```
