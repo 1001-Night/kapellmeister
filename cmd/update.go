@@ -10,7 +10,7 @@ import (
 )
 
 func newUpdateCmd(opts *config.Options, reporter *ui.Reporter) *cobra.Command {
-	return &cobra.Command{
+	updateCmd := &cobra.Command{
 		Use:   "update",
 		Short: "Обновить приложение",
 		Args:  cobra.NoArgs,
@@ -18,12 +18,15 @@ func newUpdateCmd(opts *config.Options, reporter *ui.Reporter) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reporter.Start("Updating application")
 
-			client, err := helm.New(*opts, reporter)
+			values, err := loadValues(opts.ValuesFile)
 			if err != nil {
 				return err
 			}
 
-			values := map[string]interface{}{"replicaCount": 2}
+			client, err := helm.New(*opts, reporter)
+			if err != nil {
+				return err
+			}
 
 			rel, err := client.Update(cmd.Context(), values)
 			if err != nil {
@@ -38,4 +41,20 @@ func newUpdateCmd(opts *config.Options, reporter *ui.Reporter) *cobra.Command {
 			return nil
 		},
 	}
+
+	updateCmd.Flags().StringVarP(
+		&opts.ValuesFile,
+		"values",
+		"f",
+		"",
+		"путь к файлу параметров values.yaml",
+	)
+	updateCmd.Flags().StringVar(
+		&opts.Version,
+		"version",
+		opts.Version,
+		"версия Helm chart",
+	)
+
+	return updateCmd
 }

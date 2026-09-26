@@ -10,6 +10,7 @@ type Options struct {
 	Namespace  string
 	Release    string
 	Version    string
+	ValuesFile string
 	Timeout    time.Duration
 	Verbose    bool
 	LogLevel   string

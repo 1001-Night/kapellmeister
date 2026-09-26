@@ -10,8 +10,7 @@ import (
 )
 
 func newInstallCmd(opts *config.Options, reporter *ui.Reporter) *cobra.Command {
-
-	return &cobra.Command{
+	installCmd := &cobra.Command{
 		Use:   "install",
 		Short: "Установить приложение",
 		Args:  cobra.NoArgs,
@@ -19,12 +18,15 @@ func newInstallCmd(opts *config.Options, reporter *ui.Reporter) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reporter.Start("Installing application")
 
-			client, err := helm.New(*opts, reporter)
+			values, err := loadValues(opts.ValuesFile)
 			if err != nil {
 				return err
 			}
 
-			values := map[string]interface{}{"replicaCount": 2}
+			client, err := helm.New(*opts, reporter)
+			if err != nil {
+				return err
+			}
 
 			rel, err := client.Install(cmd.Context(), values)
 			if err != nil {
@@ -39,4 +41,20 @@ func newInstallCmd(opts *config.Options, reporter *ui.Reporter) *cobra.Command {
 			return nil
 		},
 	}
+
+	installCmd.Flags().StringVarP(
+		&opts.ValuesFile,
+		"values",
+		"f",
+		"",
+		"путь к файлу параметров values.yaml",
+	)
+	installCmd.Flags().StringVar(
+		&opts.Version,
+		"version",
+		opts.Version,
+		"версия Helm chart",
+	)
+
+	return installCmd
 }
