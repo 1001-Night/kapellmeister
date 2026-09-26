@@ -14,6 +14,10 @@ func RESTClientGetter(opts config.Options) *genericclioptions.ConfigFlags {
 	flags.Namespace = &opts.Namespace
 	flags.KubeConfig = &opts.Kubeconfig
 	flags.Context = &opts.Context
+	if opts.Timeout > 0 {
+		timeout := opts.Timeout.String()
+		flags.Timeout = &timeout
+	}
 	return flags
 }
 

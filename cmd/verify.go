@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -21,6 +22,12 @@ func newVerifyCmd(
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reporter.Start("Verifying application")
 
+			ctx, cancel := context.WithTimeout(
+				cmd.Context(),
+				opts.Timeout,
+			)
+			defer cancel()
+
 			client, err := helm.New(*opts, reporter)
 			if err != nil {
 				return err
@@ -32,16 +39,21 @@ func newVerifyCmd(
 			}
 
 			checks, err := client.Verify(
-				cmd.Context(),
+				ctx,
 				rel,
 			)
 			if err != nil {
 				return err
 			}
 
+			passed := 0
+			warnings := 0
+			failed := 0
+
 			reporter.Section("Release")
 			reporter.Field("Name", rel.Name)
 			reporter.Passed("Status", string(rel.Info.Status))
+			passed++
 			reporter.Field("Revision", rel.Version)
 
 			if rel.Chart != nil && rel.Chart.Metadata != nil {
@@ -55,9 +67,6 @@ func newVerifyCmd(
 				)
 			}
 
-			passed := 1
-			warnings := 0
-			failed := 0
 			currentSection := ""
 
 			for _, check := range checks {
