@@ -27,7 +27,13 @@ func Execute() error {
 		"verbose",
 		"v",
 		false,
-		"показывать все сообщения без спиннера",
+		"включить подробный вывод",
+	)
+	rootCmd.PersistentFlags().StringVar(
+		&opts.Kubeconfig,
+		"kubeconfig",
+		"",
+		"путь к файлу kubeconfig",
 	)
 
 	// Регистрация команд (имя функций)

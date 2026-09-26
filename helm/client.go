@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"gitlab.com/1001n/kapellmeister/config"
+	"gitlab.com/1001n/kapellmeister/kube"
 )
 
 type Logger interface {
@@ -29,6 +30,8 @@ type Client struct {
 func New(opts config.Options, logger Logger) (*Client, error) {
 	settings := cli.New()
 	settings.SetNamespace(opts.Namespace)
+	settings.KubeConfig = opts.Kubeconfig
+	settings.KubeContext = opts.Context
 
 	user := os.Getenv("GITLAB_REGISTRY_USER")
 	token := os.Getenv("GITLAB_REGISTRY_TOKEN")
@@ -51,8 +54,9 @@ func New(opts config.Options, logger Logger) (*Client, error) {
 	}
 
 	actionConfig := new(action.Configuration)
+	restClientGetter := kube.RESTClientGetter(opts)
 	err = actionConfig.Init(
-		settings.RESTClientGetter(),
+		restClientGetter,
 		opts.Namespace,
 		os.Getenv("HELM_DRIVER"),
 		logger.Printf,
@@ -61,7 +65,7 @@ func New(opts config.Options, logger Logger) (*Client, error) {
 		return nil, fmt.Errorf("init action config: %w", err)
 	}
 
-	restConfig, err := settings.RESTClientGetter().ToRESTConfig()
+	restConfig, err := restClientGetter.ToRESTConfig()
 	if err != nil {
 		return nil, fmt.Errorf("create REST config: %w", err)
 	}
