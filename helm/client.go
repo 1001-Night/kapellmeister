@@ -56,6 +56,16 @@ func New(opts config.Options) (*Client, error) {
 		return nil, fmt.Errorf("init action config: %w", err)
 	}
 
+	restConfig, err := settings.RESTClientGetter().ToRESTConfig()
+	if err != nil {
+		return nil, fmt.Errorf("create REST config: %w", err)
+	}
+
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("create Kubernetes client: %w", err)
+	}
+
 	return &Client{
 		ActionConfig: actionConfig,
 		Settings:     settings,
