@@ -7,6 +7,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"helm.sh/helm/v3/pkg/release"
@@ -71,13 +72,8 @@ func (c *Client) verifyKubernetesVersion(
 }
 
 func (c *Client) verifyAPIs(
-	rel *release.Release,
-) ([]CheckResult, error) {
-	objects, err := manifestObjects(rel.Manifest)
-	if err != nil {
-		return nil, fmt.Errorf("inspect manifest APIs: %w", err)
-	}
-
+	objects []unstructured.Unstructured,
+) []CheckResult {
 	unique := make(map[schema.GroupVersionKind]struct{})
 	for _, object := range objects {
 		unique[object.GroupVersionKind()] = struct{}{}
@@ -135,5 +131,5 @@ func (c *Client) verifyAPIs(
 		checks = append(checks, check)
 	}
 
-	return checks, nil
+	return checks
 }

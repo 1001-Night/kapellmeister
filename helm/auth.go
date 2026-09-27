@@ -79,6 +79,7 @@ func (c *Client) CheckPermissions(
 	desiredManifest string,
 	currentManifest string,
 ) error {
+	// проверка прав для двух манифестов (два из-за update)
 	desiredVerbs, currentVerbs, err := verbsFor(operation)
 	if err != nil {
 		return err
@@ -144,6 +145,7 @@ func (c *Client) addHelmStoragePermissions(
 	permissions map[permission]struct{},
 	operation Operation,
 ) {
+	// права на secrets
 	var verbs []string
 
 	switch operation {
@@ -196,6 +198,7 @@ func (c *Client) checkAllPermissions(
 ) error {
 	var denied []string
 
+	// все отказы в правах
 	for required := range permissions {
 		if err := c.CanI(
 			ctx,

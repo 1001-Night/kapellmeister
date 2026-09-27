@@ -7,11 +7,12 @@ import (
 	"strings"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/cli-runtime/pkg/resource"
 
-	"helm.sh/helm/v3/pkg/release"
+	helmkube "helm.sh/helm/v3/pkg/kube"
 )
 
 const warningEventWindow = 15 * time.Minute
@@ -24,64 +25,65 @@ type eventTarget struct {
 
 func (c *Client) verifyEvents(
 	ctx context.Context,
-	rel *release.Release,
-) ([]CheckResult, error) {
-	objects, err := manifestObjects(rel.Manifest)
-	if err != nil {
-		return nil, fmt.Errorf("inspect manifest for events: %w", err)
-	}
-
+	resources helmkube.ResourceList,
+	pods []corev1.Pod,
+) []CheckResult {
 	targets := make(map[eventTarget]struct{})
 	namespaces := make(map[string]struct{})
-	for _, object := range objects {
-		namespace := object.GetNamespace()
-		if namespace == "" && !isClusterScopedKind(object.GetKind()) {
-			namespace = c.Options.Namespace
-		}
-		targets[eventTarget{
-			Namespace: namespace,
-			Kind:      object.GetKind(),
-			Name:      object.GetName(),
-		}] = struct{}{}
-		if namespace != "" {
-			namespaces[namespace] = struct{}{}
-		}
 
-		gvk := object.GroupVersionKind()
-		if gvk.Group == "apps" && gvk.Kind == "Deployment" {
-			if err := c.addDeploymentEventTargets(
+	for _, resource := range resources {
+		addEventTarget(targets, namespaces, eventTarget{
+			Namespace: resource.Namespace,
+			Kind:      resource.Mapping.GroupVersionKind.Kind,
+			Name:      resource.Name,
+		})
+
+		if resource.Mapping.GroupVersionKind.Kind == "Deployment" {
+			if err := c.addReplicaSetEventTargets(
 				ctx,
-				namespace,
-				object.GetName(),
+				resource,
 				targets,
+				namespaces,
 			); err != nil {
 				return []CheckResult{{
 					Section: "Events",
-					Name:    "Workload events",
+					Name:    resource.ObjectName(),
 					Detail:  err.Error(),
 					Status:  CheckFailed,
-				}}, nil
+				}}
 			}
 		}
 	}
 
-	if len(namespaces) == 0 && c.Options.Namespace != "" {
-		namespaces[c.Options.Namespace] = struct{}{}
+	for _, pod := range pods {
+		addEventTarget(targets, namespaces, eventTarget{
+			Namespace: pod.Namespace,
+			Kind:      "Pod",
+			Name:      pod.Name,
+		})
+
+		for _, owner := range pod.OwnerReferences {
+			addEventTarget(targets, namespaces, eventTarget{
+				Namespace: pod.Namespace,
+				Kind:      owner.Kind,
+				Name:      owner.Name,
+			})
+		}
 	}
 
 	var warnings []corev1.Event
 	for namespace := range namespaces {
-		events, err := c.KubeClient.
-			CoreV1().
-			Events(namespace).
-			List(ctx, metav1.ListOptions{})
+		events, err := c.KubeClient.CoreV1().Events(namespace).List(
+			ctx,
+			metav1.ListOptions{},
+		)
 		if err != nil {
 			return []CheckResult{{
 				Section: "Events",
 				Name:    namespace,
 				Detail:  fmt.Sprintf("list events: %v", err),
 				Status:  CheckFailed,
-			}}, nil
+			}}
 		}
 
 		for _, event := range events.Items {
@@ -100,7 +102,6 @@ func (c *Client) verifyEvents(
 			if target.Namespace == "" {
 				target.Namespace = event.Namespace
 			}
-
 			if _, ok := targets[target]; ok {
 				warnings = append(warnings, event)
 			}
@@ -113,7 +114,7 @@ func (c *Client) verifyEvents(
 			Name:    "Warnings",
 			Detail:  fmt.Sprintf("none in the last %s", warningEventWindow),
 			Status:  CheckPassed,
-		}}, nil
+		}}
 	}
 
 	sort.Slice(warnings, func(i, j int) bool {
@@ -145,88 +146,57 @@ func (c *Client) verifyEvents(
 		})
 	}
 
-	return checks, nil
+	return checks
 }
 
-func (c *Client) addDeploymentEventTargets(
+func (c *Client) addReplicaSetEventTargets(
 	ctx context.Context,
-	namespace string,
-	name string,
+	resource *resource.Info,
 	targets map[eventTarget]struct{},
+	namespaces map[string]struct{},
 ) error {
-	deployment, err := c.KubeClient.
-		AppsV1().
-		Deployments(namespace).
-		Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("get Deployment %s/%s: %w", namespace, name, err)
+	deployment, ok := helmkube.AsVersioned(resource).(*appsv1.Deployment)
+	if !ok {
+		return fmt.Errorf("convert Deployment to apps/v1")
 	}
-	if deployment.Spec.Selector == nil {
-		return fmt.Errorf("Deployment %s/%s has no Pod selector", namespace, name)
+	selector, err := helmkube.SelectorsForObject(deployment)
+	if err != nil {
+		return fmt.Errorf("get Deployment selector: %w", err)
 	}
 
-	selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+	replicaSets, err := c.KubeClient.AppsV1().ReplicaSets(resource.Namespace).List(
+		ctx,
+		metav1.ListOptions{LabelSelector: selector.String()},
+	)
 	if err != nil {
-		return fmt.Errorf("parse Deployment %s/%s selector: %w", namespace, name, err)
+		return fmt.Errorf("list ReplicaSets: %w", err)
 	}
 
-	replicaSets, err := c.KubeClient.
-		AppsV1().
-		ReplicaSets(namespace).
-		List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
-	if err != nil {
-		return fmt.Errorf("list ReplicaSets for %s/%s: %w", namespace, name, err)
-	}
-
-	replicaSetUIDs := make(map[types.UID]struct{})
-	for _, replicaSet := range replicaSets.Items {
-		if !hasOwnerUID(replicaSet.OwnerReferences, deployment.UID) {
+	for i := range replicaSets.Items {
+		replicaSet := &replicaSets.Items[i]
+		if !metav1.IsControlledBy(replicaSet, deployment) {
 			continue
 		}
-		replicaSetUIDs[replicaSet.UID] = struct{}{}
-		targets[eventTarget{
-			Namespace: namespace,
+		addEventTarget(targets, namespaces, eventTarget{
+			Namespace: replicaSet.Namespace,
 			Kind:      "ReplicaSet",
 			Name:      replicaSet.Name,
-		}] = struct{}{}
-	}
-
-	pods, err := c.KubeClient.
-		CoreV1().
-		Pods(namespace).
-		List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
-	if err != nil {
-		return fmt.Errorf("list Pods for %s/%s: %w", namespace, name, err)
-	}
-
-	for _, pod := range pods.Items {
-		owned := false
-		for replicaSetUID := range replicaSetUIDs {
-			if hasOwnerUID(pod.OwnerReferences, replicaSetUID) {
-				owned = true
-				break
-			}
-		}
-		if !owned {
-			continue
-		}
-		targets[eventTarget{
-			Namespace: namespace,
-			Kind:      "Pod",
-			Name:      pod.Name,
-		}] = struct{}{}
+		})
 	}
 
 	return nil
 }
 
-func hasOwnerUID(references []metav1.OwnerReference, uid types.UID) bool {
-	for _, reference := range references {
-		if reference.UID == uid {
-			return true
-		}
+func addEventTarget(
+	targets map[eventTarget]struct{},
+	namespaces map[string]struct{},
+	target eventTarget,
+) {
+	if target.Namespace == "" {
+		return
 	}
-	return false
+	targets[target] = struct{}{}
+	namespaces[target.Namespace] = struct{}{}
 }
 
 func eventTimestamp(event corev1.Event) time.Time {
@@ -243,20 +213,4 @@ func eventTimestamp(event corev1.Event) time.Time {
 		return event.FirstTimestamp.Time
 	}
 	return event.CreationTimestamp.Time
-}
-
-func isClusterScopedKind(kind string) bool {
-	switch kind {
-	case "Namespace",
-		"Node",
-		"PersistentVolume",
-		"ClusterRole",
-		"ClusterRoleBinding",
-		"CustomResourceDefinition",
-		"StorageClass",
-		"PriorityClass":
-		return true
-	default:
-		return false
-	}
 }

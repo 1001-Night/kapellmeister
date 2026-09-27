@@ -17,6 +17,7 @@ func (c *Client) RenderInstall(
 ) (string, error) {
 	render := c.newInstallAction()
 
+	// Рендер манифеста для проверки прав
 	render.DryRun = true
 	render.DryRunOption = "server"
 

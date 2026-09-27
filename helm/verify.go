@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"helm.sh/helm/v3/pkg/action"
+	helmkube "helm.sh/helm/v3/pkg/kube"
 	"helm.sh/helm/v3/pkg/release"
 )
 
@@ -61,35 +59,35 @@ func (c *Client) Verify(
 	ctx context.Context,
 	rel *release.Release,
 ) ([]CheckResult, error) {
-	checks := []CheckResult{c.verifyKubernetesVersion(rel)}
-
-	apiChecks, err := c.verifyAPIs(rel)
-	if err != nil {
-		return nil, err
+	if strings.TrimSpace(rel.Manifest) == "" {
+		return nil, fmt.Errorf("release %q has an empty manifest", rel.Name)
 	}
-	checks = append(checks, apiChecks...)
 
+	objects, err := manifestObjects(rel.Manifest)
+	if err != nil {
+		return nil, fmt.Errorf("inspect release manifest: %w", err)
+	}
+
+	checks := []CheckResult{c.verifyKubernetesVersion(rel)}
+	apiChecks := c.verifyAPIs(objects)
+	checks = append(checks, apiChecks...)
 	if hasFailedChecks(apiChecks) {
 		return checks, nil
 	}
 
-	resourceChecks, err := c.VerifyResources(ctx, rel)
+	resources, err := c.ActionConfig.KubeClient.Build(
+		strings.NewReader(rel.Manifest),
+		false,
+	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build release resources: %w", err)
 	}
-	checks = append(checks, resourceChecks...)
 
-	podChecks, err := c.verifyPods(ctx, rel)
-	if err != nil {
-		return nil, err
-	}
+	checks = append(checks, c.verifyResources(ctx, resources)...)
+
+	podChecks, pods := c.verifyPods(ctx, resources)
 	checks = append(checks, podChecks...)
-
-	eventChecks, err := c.verifyEvents(ctx, rel)
-	if err != nil {
-		return nil, err
-	}
-	checks = append(checks, eventChecks...)
+	checks = append(checks, c.verifyEvents(ctx, resources, pods)...)
 
 	return checks, nil
 }
@@ -103,48 +101,21 @@ func hasFailedChecks(checks []CheckResult) bool {
 	return false
 }
 
-func (c *Client) VerifyResources(
+func (c *Client) verifyResources(
 	ctx context.Context,
-	rel *release.Release,
-) ([]CheckResult, error) {
-	if strings.TrimSpace(rel.Manifest) == "" {
-		return nil, fmt.Errorf(
-			"release %q has an empty manifest",
-			rel.Name,
-		)
-	}
-
-	resources, err := c.ActionConfig.KubeClient.Build(
-		strings.NewReader(rel.Manifest),
-		false,
-	)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"parse release manifest: %w",
-			err,
-		)
-	}
-
+	resources helmkube.ResourceList,
+) []CheckResult {
 	checks := make([]CheckResult, 0, len(resources))
 
 	for _, resource := range resources {
 		check := CheckResult{
 			Section: "Resources",
 			Name:    resource.ObjectName(),
+			Status:  CheckFailed,
 		}
 
 		if err := resource.Get(); err != nil {
-			check.Status = CheckFailed
-			check.Detail = err.Error()
-
-			if resource.Namespace != "" {
-				check.Detail = fmt.Sprintf(
-					"namespace=%s: %v",
-					resource.Namespace,
-					err,
-				)
-			}
-
+			check.Detail = resourceError(resource.Namespace, err)
 			checks = append(checks, check)
 			continue
 		}
@@ -152,24 +123,33 @@ func (c *Client) VerifyResources(
 		check.Status = CheckPassed
 		check.Detail = "exists"
 
-		gvk := resource.Mapping.GroupVersionKind
-
-		if gvk.Group == "apps" && gvk.Kind == "Deployment" {
-			detail, err := c.verifyDeployment(
-				ctx,
-				resource.Namespace,
-				resource.Name,
+		if helmChecksReadiness(resource.Mapping.GroupVersionKind.Kind) {
+			var reasons []string
+			readyChecker := helmkube.NewReadyChecker(
+				c.KubeClient,
+				func(format string, args ...interface{}) {
+					reasons = append(reasons, fmt.Sprintf(format, args...))
+				},
+				helmkube.CheckJobs(true),
 			)
 
-			if err != nil {
+			ready, err := readyChecker.IsReady(ctx, resource)
+			switch {
+			case err != nil:
 				check.Status = CheckFailed
 				check.Detail = err.Error()
-			} else {
-				check.Detail = detail
+			case !ready:
+				check.Status = CheckFailed
+				check.Detail = "not ready"
+				if len(reasons) > 0 {
+					check.Detail += ": " + reasons[len(reasons)-1]
+				}
+			default:
+				check.Detail = "ready"
 			}
 		}
 
-		if gvk.Group == "" && gvk.Kind == "Service" {
+		if resource.Mapping.GroupVersionKind.Kind == "Service" {
 			detail, err := c.verifyServiceEndpoints(
 				ctx,
 				resource.Namespace,
@@ -186,99 +166,23 @@ func (c *Client) VerifyResources(
 		checks = append(checks, check)
 	}
 
-	return checks, nil
+	return checks
 }
 
-func (c *Client) verifyDeployment(
-	ctx context.Context,
-	namespace string,
-	name string,
-) (string, error) {
-	deployment, err := c.KubeClient.
-		AppsV1().
-		Deployments(namespace).
-		Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf(
-			"get current state: %w",
-			err,
-		)
+func resourceError(namespace string, err error) string {
+	if namespace == "" {
+		return err.Error()
 	}
+	return fmt.Sprintf("namespace=%s: %v", namespace, err)
+}
 
-	var desired int32 = 1
-	if deployment.Spec.Replicas != nil {
-		desired = *deployment.Spec.Replicas
+func helmChecksReadiness(kind string) bool {
+	switch kind {
+	case "Pod", "Job", "Deployment", "PersistentVolumeClaim", "Service",
+		"DaemonSet", "CustomResourceDefinition", "StatefulSet",
+		"ReplicationController", "ReplicaSet":
+		return true
+	default:
+		return false
 	}
-
-	var problems []string
-
-	if deployment.Status.ObservedGeneration < deployment.Generation {
-		problems = append(
-			problems,
-			fmt.Sprintf(
-				"generation is not observed: observed=%d expected=%d",
-				deployment.Status.ObservedGeneration,
-				deployment.Generation,
-			),
-		)
-	}
-
-	if deployment.Status.UpdatedReplicas != desired {
-		problems = append(
-			problems,
-			fmt.Sprintf(
-				"updated=%d expected=%d",
-				deployment.Status.UpdatedReplicas,
-				desired,
-			),
-		)
-	}
-
-	if deployment.Status.ReadyReplicas != desired {
-		problems = append(
-			problems,
-			fmt.Sprintf(
-				"ready=%d expected=%d",
-				deployment.Status.ReadyReplicas,
-				desired,
-			),
-		)
-	}
-
-	if deployment.Status.AvailableReplicas < desired {
-		problems = append(
-			problems,
-			fmt.Sprintf(
-				"available=%d expected=%d",
-				deployment.Status.AvailableReplicas,
-				desired,
-			),
-		)
-	}
-
-	for _, condition := range deployment.Status.Conditions {
-		if condition.Type == appsv1.DeploymentProgressing &&
-			condition.Status == "False" {
-			problems = append(
-				problems,
-				fmt.Sprintf(
-					"progressing=false: %s",
-					condition.Message,
-				),
-			)
-		}
-	}
-
-	if len(problems) > 0 {
-		return "", fmt.Errorf(
-			"not ready: %s",
-			strings.Join(problems, "; "),
-		)
-	}
-
-	return fmt.Sprintf(
-		"%d/%d ready",
-		deployment.Status.ReadyReplicas,
-		desired,
-	), nil
 }

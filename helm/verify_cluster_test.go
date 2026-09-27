@@ -63,10 +63,11 @@ metadata:
   name: app
 `}
 
-	checks, err := client.verifyAPIs(rel)
+	objects, err := manifestObjects(rel.Manifest)
 	if err != nil {
-		t.Fatalf("verifyAPIs() error = %v", err)
+		t.Fatalf("manifestObjects() error = %v", err)
 	}
+	checks := client.verifyAPIs(objects)
 	if len(checks) != 2 {
 		t.Fatalf("len(checks) = %d, want 2", len(checks))
 	}

@@ -9,7 +9,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
+// разбор манифеста
 func manifestObjects(manifest string) ([]unstructured.Unstructured, error) {
+
 	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(manifest), 4096)
 	var objects []unstructured.Unstructured
 

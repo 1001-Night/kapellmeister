@@ -5,130 +5,152 @@ import (
 	"fmt"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
-	"helm.sh/helm/v3/pkg/release"
+	helmkube "helm.sh/helm/v3/pkg/kube"
 )
 
 func (c *Client) verifyPods(
 	ctx context.Context,
-	rel *release.Release,
-) ([]CheckResult, error) {
-	objects, err := manifestObjects(rel.Manifest)
-	if err != nil {
-		return nil, fmt.Errorf("inspect workloads for pods: %w", err)
-	}
-
+	resources helmkube.ResourceList,
+) ([]CheckResult, []corev1.Pod) {
 	var checks []CheckResult
+	var relatedPods []corev1.Pod
 	seen := make(map[string]struct{})
 
-	for _, object := range objects {
-		gvk := object.GroupVersionKind()
-		if gvk.Group != "apps" || gvk.Kind != "Deployment" {
+	for _, resource := range resources {
+		kind := resource.Mapping.GroupVersionKind.Kind
+		if kind == "Pod" {
+			pod, ok := helmkube.AsVersioned(resource).(*corev1.Pod)
+			if !ok {
+				checks = append(checks, failedWorkloadCheck(
+					resource.ObjectName(),
+					fmt.Errorf("convert Pod to core/v1"),
+				))
+				continue
+			}
+			key := pod.Namespace + "/" + pod.Name
+			if _, ok := seen[key]; !ok {
+				seen[key] = struct{}{}
+				relatedPods = append(relatedPods, *pod)
+				if pod.DeletionTimestamp == nil {
+					checks = append(checks, checkPod(pod))
+				}
+			}
+			continue
+		}
+		if !controlsPods(kind) {
 			continue
 		}
 
-		namespace := object.GetNamespace()
-		if namespace == "" {
-			namespace = c.Options.Namespace
-		}
-
-		deployment, err := c.KubeClient.
-			AppsV1().
-			Deployments(namespace).
-			Get(ctx, object.GetName(), metav1.GetOptions{})
+		object := helmkube.AsVersioned(resource)
+		selector, err := helmkube.SelectorsForObject(object)
 		if err != nil {
-			checks = append(checks, CheckResult{
-				Section: "Pods",
-				Name:    fmt.Sprintf("deployment/%s", object.GetName()),
-				Detail:  fmt.Sprintf("get Deployment: %v", err),
-				Status:  CheckFailed,
-			})
+			checks = append(checks, failedWorkloadCheck(resource.ObjectName(), err))
 			continue
 		}
 
-		if deployment.Spec.Selector == nil {
-			checks = append(checks, CheckResult{
-				Section: "Pods",
-				Name:    fmt.Sprintf("deployment/%s", deployment.Name),
-				Detail:  "Deployment has no Pod selector",
-				Status:  CheckFailed,
-			})
-			continue
-		}
-
-		selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+		pods, err := c.KubeClient.CoreV1().Pods(resource.Namespace).List(
+			ctx,
+			metav1.ListOptions{LabelSelector: selector.String()},
+		)
 		if err != nil {
-			checks = append(checks, CheckResult{
-				Section: "Pods",
-				Name:    fmt.Sprintf("deployment/%s", deployment.Name),
-				Detail:  fmt.Sprintf("invalid Pod selector: %v", err),
-				Status:  CheckFailed,
-			})
+			checks = append(checks, failedWorkloadCheck(
+				resource.ObjectName(),
+				fmt.Errorf("list Pods: %w", err),
+			))
 			continue
-		}
-
-		pods, err := c.KubeClient.
-			CoreV1().
-			Pods(namespace).
-			List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
-		if err != nil {
-			checks = append(checks, CheckResult{
-				Section: "Pods",
-				Name:    fmt.Sprintf("deployment/%s", deployment.Name),
-				Detail:  fmt.Sprintf("list Pods: %v", err),
-				Status:  CheckFailed,
-			})
-			continue
-		}
-
-		desired := int32(1)
-		if deployment.Spec.Replicas != nil {
-			desired = *deployment.Spec.Replicas
 		}
 
 		active := 0
 		for i := range pods.Items {
 			pod := &pods.Items[i]
-			if pod.DeletionTimestamp != nil {
-				continue
-			}
-
 			key := pod.Namespace + "/" + pod.Name
 			if _, ok := seen[key]; ok {
 				continue
 			}
 			seen[key] = struct{}{}
+			relatedPods = append(relatedPods, *pod)
+
+			if pod.DeletionTimestamp != nil {
+				continue
+			}
 			active++
 			checks = append(checks, checkPod(pod))
 		}
 
-		if desired == 0 && active == 0 {
+		desired, known := desiredPodCount(object)
+		if known && desired == 0 && active == 0 {
 			checks = append(checks, CheckResult{
 				Section: "Pods",
-				Name:    fmt.Sprintf("deployment/%s", deployment.Name),
+				Name:    resource.ObjectName(),
 				Detail:  "scaled to 0 replicas",
 				Status:  CheckPassed,
 			})
 			continue
 		}
 
-		if int32(active) < desired {
+		if active == 0 || known && int32(active) < desired {
+			expected := "at least 1"
+			if known {
+				expected = fmt.Sprint(desired)
+			}
 			checks = append(checks, CheckResult{
 				Section: "Pods",
-				Name:    fmt.Sprintf("deployment/%s", deployment.Name),
-				Detail: fmt.Sprintf(
-					"Pods found=%d expected=%d",
-					active,
-					desired,
-				),
-				Status: CheckFailed,
+				Name:    resource.ObjectName(),
+				Detail:  fmt.Sprintf("Pods found=%d expected=%s", active, expected),
+				Status:  CheckFailed,
 			})
 		}
 	}
 
-	return checks, nil
+	return checks, relatedPods
+}
+
+func controlsPods(kind string) bool {
+	switch kind {
+	case "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet",
+		"ReplicationController":
+		return true
+	default:
+		return false
+	}
+}
+
+func desiredPodCount(object runtime.Object) (int32, bool) {
+	switch workload := object.(type) {
+	case *appsv1.Deployment:
+		return replicasOrOne(workload.Spec.Replicas), true
+	case *appsv1.StatefulSet:
+		return replicasOrOne(workload.Spec.Replicas), true
+	case *appsv1.ReplicaSet:
+		return replicasOrOne(workload.Spec.Replicas), true
+	case *corev1.ReplicationController:
+		return replicasOrOne(workload.Spec.Replicas), true
+	case *appsv1.DaemonSet:
+		return workload.Status.DesiredNumberScheduled, true
+	default:
+		return 0, false
+	}
+}
+
+func replicasOrOne(replicas *int32) int32 {
+	if replicas == nil {
+		return 1
+	}
+	return *replicas
+}
+
+func failedWorkloadCheck(name string, err error) CheckResult {
+	return CheckResult{
+		Section: "Pods",
+		Name:    name,
+		Detail:  err.Error(),
+		Status:  CheckFailed,
+	}
 }
 
 func checkPod(pod *corev1.Pod) CheckResult {
@@ -157,7 +179,6 @@ func checkPod(pod *corev1.Pod) CheckResult {
 	if !ready && !containsProblemPrefix(problems, "not Ready") {
 		problems = append(problems, "not Ready")
 	}
-
 	statuses := make([]corev1.ContainerStatus, 0,
 		len(pod.Status.InitContainerStatuses)+
 			len(pod.Status.ContainerStatuses)+

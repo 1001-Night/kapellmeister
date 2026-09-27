@@ -122,6 +122,7 @@ func (r *Reporter) Close() error {
 }
 
 func (r *Reporter) writeMessages(level string, color string, message string) {
+	// разбиваем лог на строки для файла и спиннера
 	lines := strings.Split(strings.ReplaceAll(message, "\r\n", "\n"), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
