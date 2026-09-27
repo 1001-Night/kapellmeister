@@ -35,6 +35,12 @@ func Execute() error {
 		"",
 		"путь к файлу kubeconfig",
 	)
+	rootCmd.PersistentFlags().StringVar(
+		&opts.Context,
+		"context",
+		"",
+		"имя контекста kubeconfig",
+	)
 
 	// Регистрация команд (имя функций)
 	rootCmd.AddCommand(

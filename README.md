@@ -26,7 +26,7 @@ curl -fsSL https://gitlab.com/1001n/kapellmeister/-/raw/main/install.sh | sh -s 
 
 Вывести установленную версию Kapellmeisterctl, а так же Kubernetes (если обнаружен)
 ```sh
-kapellmeister version [flags: --kubeconfig] 
+kapellmeister version [flags: --kubeconfig, --context]
 ```
 
 Установить Kapellmeister
@@ -36,6 +36,7 @@ kapellmeister install
         --version string
         -f path/to/values.yaml
         --kubeconfig /path/to/kubeconfig
+        --context context-name
         -v 
     ]
 ```
@@ -47,6 +48,7 @@ kapellmeister update
         --version string
         -f path/to/values.yaml
         --kubeconfig /path/to/kubeconfig
+        --context context-name
         -v
     ]
 ```
@@ -56,6 +58,7 @@ kapellmeister update
 kapellmeister uninstall
     [flags:
         --kubeconfig /path/to/kubeconfig
+        --context context-name
         -v
     ]
 ```
@@ -65,5 +68,6 @@ kapellmeister uninstall
 kapellmeister verify
     [flags:
         --kubeconfig /path/to/kubeconfig
+        --context context-name
     ]
 ```
