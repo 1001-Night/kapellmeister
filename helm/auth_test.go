@@ -24,6 +24,12 @@ func TestVerbsFor(t *testing.T) {
 			wantCurrent: []string{"get", "list", "watch", "delete"},
 		},
 		{
+			name:        "rollback",
+			operation:   OperationRollback,
+			wantDesired: []string{"get", "list", "watch", "create", "update", "patch", "delete"},
+			wantCurrent: []string{"get", "list", "watch", "delete"},
+		},
+		{
 			name:        "uninstall",
 			operation:   OperationUninstall,
 			wantCurrent: []string{"get", "list", "watch", "delete"},

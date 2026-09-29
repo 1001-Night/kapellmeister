@@ -53,6 +53,27 @@ kapellmeister update
     ]
 ```
 
+Откатить Kapellmeister на предыдущую ревизию
+```sh
+kapellmeister rollback
+    [flags:
+        --revision int
+        --kubeconfig /path/to/kubeconfig
+        --context context-name
+        -v
+    ]
+```
+
+Для отката на конкретную ревизию:
+```sh
+kapellmeister rollback --revision 2
+```
+
+Посмотреть доступные ревизии:
+```sh
+kapellmeister history
+```
+
 Удалить Kapellmeister
 ```sh
 kapellmeister uninstall

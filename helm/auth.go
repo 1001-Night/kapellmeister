@@ -24,6 +24,7 @@ type Operation string
 const (
 	OperationInstall   Operation = "install"
 	OperationUpdate    Operation = "update"
+	OperationRollback  Operation = "rollback"
 	OperationUninstall Operation = "uninstall"
 )
 
@@ -151,7 +152,7 @@ func (c *Client) addHelmStoragePermissions(
 	switch operation {
 	case OperationInstall:
 		verbs = []string{"get", "list", "create", "update", "delete"}
-	case OperationUpdate:
+	case OperationUpdate, OperationRollback:
 		verbs = []string{"get", "list", "create", "update", "delete"}
 	case OperationUninstall:
 		verbs = []string{"get", "list", "update", "delete"}
@@ -232,7 +233,7 @@ func verbsFor(
 	switch operation {
 	case OperationInstall:
 		return []string{"get", "list", "watch", "create", "delete"}, nil, nil
-	case OperationUpdate:
+	case OperationUpdate, OperationRollback:
 		return []string{"get", "list", "watch", "create", "update", "patch", "delete"},
 			[]string{"get", "list", "watch", "delete"},
 			nil
