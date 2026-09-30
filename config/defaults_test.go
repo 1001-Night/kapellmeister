@@ -10,11 +10,11 @@ import (
 func TestDefaultOptions(t *testing.T) {
 	opts := DefaultOptions()
 
-	if opts.Namespace != "test-ngix" {
-		t.Errorf("Namespace = %q, want %q", opts.Namespace, "test-ngix")
+	if opts.Namespace != "kapellmeister" {
+		t.Errorf("Namespace = %q, want %q", opts.Namespace, "kapellmeister")
 	}
-	if opts.Release != "test-ngix" {
-		t.Errorf("Release = %q, want %q", opts.Release, "test-ngix")
+	if opts.Release != "kapellmeister" {
+		t.Errorf("Release = %q, want %q", opts.Release, "kapellmeister")
 	}
 	if opts.Version == "" {
 		t.Error("Version must not be empty")

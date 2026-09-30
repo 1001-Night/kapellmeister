@@ -2,7 +2,7 @@ package config
 
 import "time"
 
-const ChartRef = "oci://registry.gitlab.com/1001n/test-chart/charts/test-ngix"
+const ChartRef = "oci://registry.gitlab.com/1001n/kapellmeister-test-chart/charts/kapellmeister"
 
 type Options struct {
 	Kubeconfig string
@@ -20,9 +20,9 @@ type Options struct {
 
 func DefaultOptions() Options {
 	return Options{
-		Namespace: "test-ngix",
-		Release:   "test-ngix",
-		Version:   "0.0.3",
+		Namespace: "kapellmeister",
+		Release:   "kapellmeister",
+		Version:   "0.1.0",
 		Timeout:   5 * time.Minute,
 		LogLevel:  "info",
 		Output:    "text",
