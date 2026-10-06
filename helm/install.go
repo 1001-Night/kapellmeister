@@ -2,6 +2,7 @@ package helm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"helm.sh/helm/v3/pkg/action"
@@ -41,8 +42,21 @@ func (c *Client) Install(
 		return nil, err
 	}
 
+	namespaceCreated, err := c.ensureNamespace(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	rel, err := install.RunWithContext(ctx, ch, values)
 	if err != nil {
+		if namespaceCreated {
+			if cleanupErr := c.deleteOwnedNamespace(ctx); cleanupErr != nil {
+				return nil, errors.Join(
+					fmt.Errorf("install release: %w", err),
+					fmt.Errorf("cleanup namespace: %w", cleanupErr),
+				)
+			}
+		}
 		return nil, fmt.Errorf("install release: %w", err)
 	}
 
@@ -56,7 +70,7 @@ func (c *Client) newInstallAction() *action.Install {
 	install.ReleaseName = c.Options.Release
 	install.Namespace = c.Options.Namespace
 	install.Version = c.Options.Version
-	install.CreateNamespace = true
+	install.CreateNamespace = false
 
 	install.Wait = true
 	install.WaitForJobs = true

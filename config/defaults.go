@@ -22,7 +22,7 @@ func DefaultOptions() Options {
 	return Options{
 		Namespace: "kapellmeister",
 		Release:   "kapellmeister",
-		Version:   "0.1.0",
+		Version:   "0.6.0",
 		Timeout:   5 * time.Minute,
 		LogLevel:  "info",
 		Output:    "text",

@@ -38,6 +38,9 @@ func (c *Client) Uninstall(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("uninstall release: %w", err)
 	}
+	if err := c.deleteOwnedNamespace(ctx); err != nil {
+		return err
+	}
 
 	return nil
 }

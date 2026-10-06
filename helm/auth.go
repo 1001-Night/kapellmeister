@@ -97,8 +97,8 @@ func (c *Client) CheckPermissions(
 
 	c.addHelmStoragePermissions(permissions, operation)
 
-	if operation == OperationInstall {
-		if err := c.addNamespacePermission(ctx, permissions); err != nil {
+	if operation == OperationInstall || operation == OperationUninstall {
+		if err := c.addNamespacePermission(ctx, permissions, operation); err != nil {
 			return err
 		}
 	}
@@ -171,22 +171,33 @@ func (c *Client) addHelmStoragePermissions(
 func (c *Client) addNamespacePermission(
 	ctx context.Context,
 	permissions map[permission]struct{},
+	operation Operation,
 ) error {
-	_, err := c.KubeClient.
+	namespace, err := c.KubeClient.
 		CoreV1().
 		Namespaces().
 		Get(ctx, c.Options.Namespace, metav1.GetOptions{})
 
 	switch {
 	case err == nil:
+		if operation == OperationUninstall && namespace.Labels[namespaceOwnerLabel] == "true" {
+			permissions[permission{
+				Verb:      "delete",
+				Group:     "",
+				Resource:  "namespaces",
+				Namespace: "",
+			}] = struct{}{}
+		}
 		return nil
 	case apierrors.IsNotFound(err):
-		permissions[permission{
-			Verb:      "create",
-			Group:     "",
-			Resource:  "namespaces",
-			Namespace: "",
-		}] = struct{}{}
+		if operation == OperationInstall {
+			permissions[permission{
+				Verb:      "create",
+				Group:     "",
+				Resource:  "namespaces",
+				Namespace: "",
+			}] = struct{}{}
+		}
 		return nil
 	default:
 		return fmt.Errorf("check namespace %q: %w", c.Options.Namespace, err)
