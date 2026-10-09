@@ -27,6 +27,9 @@ func (c *Client) Install(
 	if err != nil {
 		return nil, fmt.Errorf("load chart: %w", err)
 	}
+	if err := c.preflightKubernetesVersion(ch); err != nil {
+		return nil, err
+	}
 
 	manifest, err := c.RenderInstall(ctx, ch, values)
 	if err != nil {
