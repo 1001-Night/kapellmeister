@@ -38,7 +38,7 @@ func newUpdateCmd(opts *config.Options, reporter *ui.Reporter) *cobra.Command {
 				rel.Name,
 				rel.Version,
 			))
-			return nil
+			return verifyAfterOperation(cmd.Context(), opts, client, rel, reporter)
 		},
 	}
 

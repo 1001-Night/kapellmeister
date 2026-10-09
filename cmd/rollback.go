@@ -42,7 +42,7 @@ func newRollbackCmd(
 				targetRevision,
 				rel.Version,
 			))
-			return nil
+			return verifyAfterOperation(cmd.Context(), opts, client, rel, reporter)
 		},
 	}
 
