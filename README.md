@@ -1,5 +1,10 @@
 # Kapellmeister
 
+## Связанные репозитории
+
+- Используемый Helm-чарт - [https://gitlab.com/1001n/kapellmeister-test-chart](https://gitlab.com/1001n/kapellmeister-test-chart)
+- Тесты (скрипты + манифесты) - [https://gitlab.com/1001n/kapellmeister-e2e-tests/](https://gitlab.com/1001n/kapellmeister-e2e-tests/)
+
 ## Установка
 
 Установка последней версии:
