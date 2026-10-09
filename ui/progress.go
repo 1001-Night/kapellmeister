@@ -81,6 +81,10 @@ func (r *Reporter) Start(message string) {
 
 	r.spinner.Suffix = " " + message
 	r.spinner.Start()
+	if !r.spinner.Active() {
+		r.writeConsole(green, "INFO", message)
+		return
+	}
 	r.started = true
 }
 
