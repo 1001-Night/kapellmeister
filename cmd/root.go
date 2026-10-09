@@ -49,6 +49,7 @@ func Execute() error {
 		newUninstallCmd(&opts, reporter),
 		newUpdateCmd(&opts, reporter),
 		newHistoryCmd(&opts, reporter),
+		newStatusCmd(&opts, reporter),
 		newRollbackCmd(&opts, reporter),
 		newVerifyCmd(&opts, reporter),
 	)

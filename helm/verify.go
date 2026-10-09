@@ -5,21 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	"helm.sh/helm/v3/pkg/action"
 	helmkube "helm.sh/helm/v3/pkg/kube"
 	"helm.sh/helm/v3/pkg/release"
 )
 
 func (c *Client) VerifyRelease() (*release.Release, error) {
-	status := action.NewStatus(c.ActionConfig)
-
-	rel, err := status.Run(c.Options.Release)
+	rel, err := c.Status()
 	if err != nil {
-		return nil, fmt.Errorf(
-			"get release %q status: %w",
-			c.Options.Release,
-			err,
-		)
+		return nil, err
 	}
 
 	if rel.Info == nil {

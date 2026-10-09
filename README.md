@@ -79,6 +79,11 @@ kapellmeister rollback --revision 2
 kapellmeister history
 ```
 
+Посмотреть состояние последней ревизии по данным Helm:
+```sh
+kapellmeister status
+```
+
 Удалить Kapellmeister
 ```sh
 kapellmeister uninstall
