@@ -70,11 +70,7 @@ func (r *Reporter) Start(message string) {
 	defer r.mu.Unlock()
 
 	r.writeFile("INFO", message)
-	if r.isVerbose() {
-		r.writeConsole(green, "INFO", message)
-		return
-	}
-	if !r.spinner.Enabled() {
+	if r.isVerbose() || !r.spinner.Enabled() {
 		r.writeConsole(green, "INFO", message)
 		return
 	}
@@ -89,15 +85,7 @@ func (r *Reporter) Start(message string) {
 }
 
 func (r *Reporter) Printf(format string, args ...any) {
-	r.Infof(format, args...)
-}
-
-func (r *Reporter) Infof(format string, args ...any) {
 	r.writeMessages("INFO", green, fmt.Sprintf(format, args...))
-}
-
-func (r *Reporter) Errorf(format string, args ...any) {
-	r.writeMessages("ERROR", red, fmt.Sprintf(format, args...))
 }
 
 func (r *Reporter) Success(message string) {
@@ -109,7 +97,7 @@ func (r *Reporter) Fail(message string) {
 }
 
 func (r *Reporter) Write(data []byte) (int, error) {
-	r.Infof("%s", string(data))
+	r.writeMessages("INFO", green, string(data))
 	return len(data), nil
 }
 
@@ -208,56 +196,31 @@ func (r *Reporter) Field(label string, value any) {
 }
 
 func (r *Reporter) Passed(label string, detail string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.writeFile(
-		"PASS",
-		fmt.Sprintf("%s: %s", label, detail),
-	)
-
-	fmt.Fprintf(
-		os.Stderr,
-		"  %s✓%s %-24s %s\n",
-		green,
-		reset,
-		label,
-		detail,
-	)
+	r.checkResult("PASS", green, "✓", label, detail)
 }
 
 func (r *Reporter) Failed(label string, detail string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.writeFile(
-		"FAIL",
-		fmt.Sprintf("%s: %s", label, detail),
-	)
-
-	fmt.Fprintf(
-		os.Stderr,
-		"  %s✗%s %-24s %s\n",
-		red,
-		reset,
-		label,
-		detail,
-	)
+	r.checkResult("FAIL", red, "✗", label, detail)
 }
 
 func (r *Reporter) Warning(label string, detail string) {
+	r.checkResult("WARN", yellow, "!", label, detail)
+}
+
+func (r *Reporter) checkResult(level string, color string, symbol string, label string, detail string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.writeFile(
-		"WARN",
+		level,
 		fmt.Sprintf("%s: %s", label, detail),
 	)
 
 	fmt.Fprintf(
 		os.Stderr,
-		"  %s!%s %-24s %s\n",
-		yellow,
+		"  %s%s%s %-24s %s\n",
+		color,
+		symbol,
 		reset,
 		label,
 		detail,
