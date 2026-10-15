@@ -2,14 +2,12 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"gitlab.com/1001n/kapellmeister/buildinfo"
 	"gitlab.com/1001n/kapellmeister/config"
 	"gitlab.com/1001n/kapellmeister/ui"
 )
 
 func Execute() error {
 
-	buildInfo := buildinfo.BuildOptions()
 	opts := config.DefaultOptions()
 	reporter, err := ui.NewReporter(&opts.Verbose)
 	if err != nil {
@@ -44,7 +42,7 @@ func Execute() error {
 
 	// Регистрация команд (имя функций)
 	rootCmd.AddCommand(
-		newVersionCmd(&buildInfo, &opts),
+		newVersionCmd(&opts),
 		newInstallCmd(&opts, reporter),
 		newUninstallCmd(&opts, reporter),
 		newUpdateCmd(&opts, reporter),

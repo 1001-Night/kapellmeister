@@ -13,8 +13,6 @@ type Options struct {
 	ValuesFile string
 	Timeout    time.Duration
 	Verbose    bool
-	LogLevel   string
-	Output     string
 	ReportFile string
 }
 
@@ -24,7 +22,5 @@ func DefaultOptions() Options {
 		Release:   "kapellmeister",
 		Version:   "0.6.0",
 		Timeout:   5 * time.Minute,
-		LogLevel:  "info",
-		Output:    "text",
 	}
 }

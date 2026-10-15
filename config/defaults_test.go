@@ -28,10 +28,4 @@ func TestDefaultOptions(t *testing.T) {
 	if opts.Timeout != 5*time.Minute {
 		t.Errorf("Timeout = %v, want %v", opts.Timeout, 5*time.Minute)
 	}
-	if opts.LogLevel != "info" {
-		t.Errorf("LogLevel = %q, want %q", opts.LogLevel, "info")
-	}
-	if opts.Output != "text" {
-		t.Errorf("Output = %q, want %q", opts.Output, "text")
-	}
 }
