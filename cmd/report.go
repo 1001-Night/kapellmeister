@@ -38,29 +38,34 @@ func addReportFileFlag(cmd *cobra.Command, opts *config.Options) {
 	)
 }
 
-// finishReport сохраняет результат проверки, если указан файл отчёта.
+// finishReport возвращает итог проверки и сохраняет отчёт, если указан файл.
 func finishReport(
 	opts *config.Options,
-	rel *release.Release,
-	checks []helm.CheckResult,
+	report verificationReport,
 	resultErr error,
 ) error {
+	if resultErr == nil && report.Failed > 0 {
+		resultErr = fmt.Errorf("verification failed: %d checks failed, %d warnings", report.Failed, report.Warnings)
+	}
+	if resultErr != nil {
+		report.Result = "failed"
+		report.Error = resultErr.Error()
+	}
 	if opts.ReportFile == "" {
 		return resultErr
 	}
-	if err := writeVerificationReport(opts.ReportFile, *opts, rel, checks, resultErr); err != nil {
+	if err := writeVerificationReport(opts.ReportFile, report); err != nil {
 		return errors.Join(resultErr, fmt.Errorf("save report: %w", err))
 	}
 	return resultErr
 }
 
-func writeVerificationReport(
-	path string,
+// newVerificationReport собирает общий результат для консоли и JSON.
+func newVerificationReport(
 	opts config.Options,
 	rel *release.Release,
 	checks []helm.CheckResult,
-	resultErr error,
-) error {
+) verificationReport {
 	report := verificationReport{
 		Time:      time.Now().UTC(),
 		Release:   opts.Release,
@@ -97,18 +102,17 @@ func writeVerificationReport(
 			report.Passed++
 		case helm.CheckWarning:
 			report.Warnings++
-		case helm.CheckFailed:
+		default:
 			report.Failed++
 		}
 	}
 	if report.Failed > 0 {
 		report.Result = "failed"
 	}
-	if resultErr != nil {
-		report.Result = "failed"
-		report.Error = resultErr.Error()
-	}
+	return report
+}
 
+func writeVerificationReport(path string, report verificationReport) error {
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode report: %w", err)

@@ -31,8 +31,11 @@ func TestWriteVerificationReport(t *testing.T) {
 		{Section: "Events", Name: "Warning", Detail: "restart", Status: helm.CheckWarning},
 		{Section: "Resources", Name: "Service", Detail: "missing", Status: helm.CheckFailed},
 	}
-	if err := writeVerificationReport(path, config.DefaultOptions(), rel, checks, errors.New("verification failed")); err != nil {
-		t.Fatal(err)
+	opts := config.DefaultOptions()
+	opts.ReportFile = path
+	wantErr := errors.New("verification failed")
+	if err := finishReport(&opts, newVerificationReport(opts, rel, checks), wantErr); !errors.Is(err, wantErr) {
+		t.Fatalf("finishReport() error = %v, want %v", err, wantErr)
 	}
 
 	data, err := os.ReadFile(path)
@@ -56,7 +59,7 @@ func TestWriteVerificationReport(t *testing.T) {
 		t.Fatalf("report checks = %#v", report.Checks)
 	}
 
-	if err := writeVerificationReport(path, config.DefaultOptions(), rel, checks[:1], nil); err != nil {
+	if err := finishReport(&opts, newVerificationReport(opts, rel, checks[:1]), nil); err != nil {
 		t.Fatal(err)
 	}
 	data, err = os.ReadFile(path)
@@ -75,8 +78,10 @@ func TestWriteVerificationReport(t *testing.T) {
 func TestWriteVerificationReportWithoutRelease(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "report.json")
 	opts := config.DefaultOptions()
-	if err := writeVerificationReport(path, opts, nil, nil, errors.New("release not found")); err != nil {
-		t.Fatal(err)
+	opts.ReportFile = path
+	wantErr := errors.New("release not found")
+	if err := finishReport(&opts, newVerificationReport(opts, nil, nil), wantErr); !errors.Is(err, wantErr) {
+		t.Fatalf("finishReport() error = %v, want %v", err, wantErr)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -91,5 +96,44 @@ func TestWriteVerificationReportWithoutRelease(t *testing.T) {
 	}
 	if report.Checks == nil {
 		t.Fatal("checks must be an empty JSON array")
+	}
+}
+
+func TestVerificationSummary(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		status   release.Status
+		checks   []helm.CheckResult
+		passed   int
+		warnings int
+		failed   int
+	}{
+		{name: "warnings are not fatal", status: release.StatusDeployed,
+			checks: []helm.CheckResult{{Status: helm.CheckWarning}}, passed: 1, warnings: 1},
+		{name: "failed check", status: release.StatusDeployed,
+			checks: []helm.CheckResult{{Status: helm.CheckFailed}}, passed: 1, failed: 1},
+		{name: "failed release", status: release.StatusFailed, failed: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			opts := config.DefaultOptions()
+			rel := &release.Release{Info: &release.Info{Status: test.status}}
+			report := newVerificationReport(opts, rel, test.checks)
+			if report.Passed != test.passed || report.Warnings != test.warnings || report.Failed != test.failed {
+				t.Fatalf("report summary = %#v", report)
+			}
+			if err := finishReport(&opts, report, nil); (err != nil) != (test.failed > 0) {
+				t.Fatalf("finishReport() error = %v, failed checks = %d", err, test.failed)
+			}
+		})
+	}
+}
+
+func TestFinishReportPreservesErrorWhenSavingFails(t *testing.T) {
+	opts := config.DefaultOptions()
+	opts.ReportFile = t.TempDir()
+	wantErr := errors.New("cluster unavailable")
+	err := finishReport(&opts, newVerificationReport(opts, nil, nil), wantErr)
+	if !errors.Is(err, wantErr) || !strings.Contains(err.Error(), "save report") {
+		t.Fatalf("finishReport() error = %v, want original and save errors", err)
 	}
 }
