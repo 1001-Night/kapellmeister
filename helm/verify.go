@@ -117,11 +117,11 @@ func (c *Client) verifyResources(
 		check.Detail = "exists"
 
 		if helmChecksReadiness(resource.Mapping.GroupVersionKind.Kind) {
-			var reasons []string
+			var lastReason string
 			readyChecker := helmkube.NewReadyChecker(
 				c.KubeClient,
 				func(format string, args ...interface{}) {
-					reasons = append(reasons, fmt.Sprintf(format, args...))
+					lastReason = fmt.Sprintf(format, args...)
 				},
 				helmkube.CheckJobs(true),
 			)
@@ -134,8 +134,8 @@ func (c *Client) verifyResources(
 			case !ready:
 				check.Status = CheckFailed
 				check.Detail = "not ready"
-				if len(reasons) > 0 {
-					check.Detail += ": " + reasons[len(reasons)-1]
+				if lastReason != "" {
+					check.Detail += ": " + lastReason
 				}
 			default:
 				check.Detail = "ready"
@@ -143,11 +143,7 @@ func (c *Client) verifyResources(
 		}
 
 		if resource.Mapping.GroupVersionKind.Kind == "Service" {
-			detail, err := c.verifyServiceEndpoints(
-				ctx,
-				resource.Namespace,
-				resource.Name,
-			)
+			detail, err := c.verifyServiceEndpoints(ctx, resource)
 			if err != nil {
 				check.Status = CheckFailed
 				check.Detail = err.Error()

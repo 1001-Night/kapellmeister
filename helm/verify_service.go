@@ -4,35 +4,35 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/cli-runtime/pkg/resource"
+
+	helmkube "helm.sh/helm/v3/pkg/kube"
 )
 
 func (c *Client) verifyServiceEndpoints(
 	ctx context.Context,
-	namespace string,
-	name string,
+	info *resource.Info,
 ) (string, error) {
-	service, err := c.KubeClient.
-		CoreV1().
-		Services(namespace).
-		Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf("get current state: %w", err)
+	service, ok := helmkube.AsVersioned(info).(*corev1.Service)
+	if !ok {
+		return "", fmt.Errorf("convert Service to core/v1")
 	}
 
-	if service.Spec.Type == "ExternalName" {
+	if service.Spec.Type == corev1.ServiceTypeExternalName {
 		return fmt.Sprintf("ExternalName %s", service.Spec.ExternalName), nil
 	}
 
 	selector := labels.Set{
-		discoveryv1.LabelServiceName: name,
+		discoveryv1.LabelServiceName: service.Name,
 	}.AsSelector().String()
 
 	slices, err := c.KubeClient.
 		DiscoveryV1().
-		EndpointSlices(namespace).
+		EndpointSlices(service.Namespace).
 		List(ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return "", fmt.Errorf("list EndpointSlices: %w", err)

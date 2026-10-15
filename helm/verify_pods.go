@@ -42,11 +42,12 @@ func (c *Client) verifyPods(
 			}
 			continue
 		}
-		if !controlsPods(kind) {
+		object := helmkube.AsVersioned(resource)
+		desired, supported := desiredPodCount(object)
+		if !supported {
 			continue
 		}
 
-		object := helmkube.AsVersioned(resource)
 		selector, err := helmkube.SelectorsForObject(object)
 		if err != nil {
 			checks = append(checks, failedWorkloadCheck(resource.ObjectName(), err))
@@ -82,8 +83,7 @@ func (c *Client) verifyPods(
 			checks = append(checks, checkPod(pod))
 		}
 
-		desired, known := desiredPodCount(object)
-		if known && desired == 0 && active == 0 {
+		if desired == 0 && active == 0 {
 			checks = append(checks, CheckResult{
 				Section: "Pods",
 				Name:    resource.ObjectName(),
@@ -93,31 +93,17 @@ func (c *Client) verifyPods(
 			continue
 		}
 
-		if active == 0 || known && int32(active) < desired {
-			expected := "at least 1"
-			if known {
-				expected = fmt.Sprint(desired)
-			}
+		if active == 0 || int32(active) < desired {
 			checks = append(checks, CheckResult{
 				Section: "Pods",
 				Name:    resource.ObjectName(),
-				Detail:  fmt.Sprintf("Pods found=%d expected=%s", active, expected),
+				Detail:  fmt.Sprintf("Pods found=%d expected=%d", active, desired),
 				Status:  CheckFailed,
 			})
 		}
 	}
 
 	return checks, relatedPods
-}
-
-func controlsPods(kind string) bool {
-	switch kind {
-	case "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet",
-		"ReplicationController":
-		return true
-	default:
-		return false
-	}
 }
 
 func desiredPodCount(object runtime.Object) (int32, bool) {
@@ -166,18 +152,19 @@ func checkPod(pod *corev1.Pod) CheckResult {
 	}
 
 	ready := false
+	readyProblem := "not Ready"
 	for _, condition := range pod.Status.Conditions {
 		if condition.Type != corev1.PodReady {
 			continue
 		}
 		ready = condition.Status == corev1.ConditionTrue
 		if !ready && condition.Message != "" {
-			problems = append(problems, "not Ready: "+condition.Message)
+			readyProblem += ": " + condition.Message
 		}
 		break
 	}
-	if !ready && !containsProblemPrefix(problems, "not Ready") {
-		problems = append(problems, "not Ready")
+	if !ready {
+		problems = append(problems, readyProblem)
 	}
 	statuses := make([]corev1.ContainerStatus, 0,
 		len(pod.Status.InitContainerStatuses)+
@@ -221,13 +208,4 @@ func checkPod(pod *corev1.Pod) CheckResult {
 		check.Status = CheckWarning
 	}
 	return check
-}
-
-func containsProblemPrefix(problems []string, prefix string) bool {
-	for _, problem := range problems {
-		if strings.HasPrefix(problem, prefix) {
-			return true
-		}
-	}
-	return false
 }
