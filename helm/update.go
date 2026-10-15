@@ -17,7 +17,6 @@ func (c *Client) Update(
 ) (*release.Release, error) {
 
 	upgrade := action.NewUpgrade(c.ActionConfig)
-	upgrade.SetRegistryClient(c.Registry)
 
 	upgrade.Namespace = c.Options.Namespace
 	upgrade.Version = c.Options.Version

@@ -71,7 +71,6 @@ func (c *Client) Install(
 
 func (c *Client) newInstallAction() *action.Install {
 	install := action.NewInstall(c.ActionConfig)
-	install.SetRegistryClient(c.Registry)
 
 	install.ReleaseName = c.Options.Release
 	install.Namespace = c.Options.Namespace

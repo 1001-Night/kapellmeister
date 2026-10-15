@@ -39,7 +39,6 @@ func (c *Client) RenderUpdate(
 	values map[string]interface{},
 ) (string, error) {
 	render := action.NewUpgrade(c.ActionConfig)
-	render.SetRegistryClient(c.Registry)
 
 	render.Namespace = c.Options.Namespace
 	render.Version = c.Options.Version

@@ -22,7 +22,6 @@ type Logger interface {
 type Client struct {
 	ActionConfig *action.Configuration
 	Settings     *cli.EnvSettings
-	Registry     *registry.Client
 	KubeClient   kubernetes.Interface
 	Options      config.Options
 }
@@ -53,10 +52,9 @@ func New(opts config.Options, logger Logger) (*Client, error) {
 		return nil, fmt.Errorf("create registry client: %w", err)
 	}
 
-	actionConfig := new(action.Configuration)
-	restClientGetter := kube.RESTClientGetter(opts)
+	actionConfig := &action.Configuration{RegistryClient: regClient}
 	err = actionConfig.Init(
-		restClientGetter,
+		kube.RESTClientGetter(opts),
 		opts.Namespace,
 		os.Getenv("HELM_DRIVER"),
 		logger.Printf,
@@ -65,12 +63,7 @@ func New(opts config.Options, logger Logger) (*Client, error) {
 		return nil, fmt.Errorf("init action config: %w", err)
 	}
 
-	restConfig, err := restClientGetter.ToRESTConfig()
-	if err != nil {
-		return nil, fmt.Errorf("create REST config: %w", err)
-	}
-
-	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	kubeClient, err := actionConfig.KubernetesClientSet()
 	if err != nil {
 		return nil, fmt.Errorf("create Kubernetes client: %w", err)
 	}
@@ -78,7 +71,6 @@ func New(opts config.Options, logger Logger) (*Client, error) {
 	return &Client{
 		ActionConfig: actionConfig,
 		Settings:     settings,
-		Registry:     regClient,
 		KubeClient:   kubeClient,
 		Options:      opts,
 	}, nil

@@ -150,9 +150,7 @@ func (c *Client) addHelmStoragePermissions(
 	var verbs []string
 
 	switch operation {
-	case OperationInstall:
-		verbs = []string{"get", "list", "create", "update", "delete"}
-	case OperationUpdate, OperationRollback:
+	case OperationInstall, OperationUpdate, OperationRollback:
 		verbs = []string{"get", "list", "create", "update", "delete"}
 	case OperationUninstall:
 		verbs = []string{"get", "list", "update", "delete"}
