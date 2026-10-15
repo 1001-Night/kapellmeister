@@ -55,6 +55,7 @@ func newUpdateCmd(opts *config.Options, reporter *ui.Reporter) *cobra.Command {
 		opts.Version,
 		"версия Helm chart",
 	)
+	addReportFileFlag(updateCmd, opts)
 
 	return updateCmd
 }

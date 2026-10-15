@@ -52,6 +52,7 @@ func newRollbackCmd(
 		0,
 		"ревизия Helm (0 — предыдущая)",
 	)
+	addReportFileFlag(rollbackCmd, opts)
 
 	return rollbackCmd
 }

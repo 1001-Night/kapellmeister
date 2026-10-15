@@ -102,3 +102,11 @@ kapellmeister verify
         --context context-name
     ]
 ```
+
+Сохранить результат проверки в JSON:
+```sh
+kapellmeister verify --report-file report.json
+```
+
+`--report-file` также работает с `install`, `update` и `rollback`. Если файл уже существует, он заменяется.
+Для этих команд отчёт создаётся после запуска проверки; ошибки до неё остаются в журнале утилиты.

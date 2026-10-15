@@ -34,10 +34,10 @@ func (c *Client) VerifyRelease() (*release.Release, error) {
 }
 
 type CheckResult struct {
-	Section string
-	Name    string
-	Detail  string
-	Status  CheckStatus
+	Section string      `json:"section"`
+	Name    string      `json:"name"`
+	Detail  string      `json:"detail"`
+	Status  CheckStatus `json:"status"`
 }
 
 type CheckStatus string

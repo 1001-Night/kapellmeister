@@ -16,7 +16,7 @@ func newVerifyCmd(
 	opts *config.Options,
 	reporter *ui.Reporter,
 ) *cobra.Command {
-	return &cobra.Command{
+	verifyCmd := &cobra.Command{
 		Use:   "verify",
 		Short: "Проверить состояние приложения",
 		Args:  cobra.NoArgs,
@@ -32,12 +32,12 @@ func newVerifyCmd(
 
 			client, err := helm.New(*opts, reporter)
 			if err != nil {
-				return err
+				return finishReport(opts, nil, nil, err)
 			}
 
 			rel, err := client.VerifyRelease()
 			if err != nil {
-				return err
+				return finishReport(opts, nil, nil, err)
 			}
 
 			checks, err := client.Verify(
@@ -45,7 +45,7 @@ func newVerifyCmd(
 				rel,
 			)
 			if err != nil {
-				return err
+				return finishReport(opts, rel, nil, err)
 			}
 
 			passed := 0
@@ -91,11 +91,14 @@ func newVerifyCmd(
 			}
 
 			if failed > 0 {
-				return fmt.Errorf(
+				return finishReport(opts, rel, checks, fmt.Errorf(
 					"verification failed: %d checks failed, %d warnings",
 					failed,
 					warnings,
-				)
+				))
+			}
+			if err := finishReport(opts, rel, checks, nil); err != nil {
+				return err
 			}
 
 			reporter.Complete(fmt.Sprintf(
@@ -107,6 +110,8 @@ func newVerifyCmd(
 			return nil
 		},
 	}
+	addReportFileFlag(verifyCmd, opts)
+	return verifyCmd
 }
 
 // verifyAfterOperation показывает результат проверки после изменения релиза.
@@ -119,14 +124,14 @@ func verifyAfterOperation(
 ) error {
 	reporter.Start("Verifying application")
 	if rel.Info == nil || rel.Info.Status != release.StatusDeployed {
-		return fmt.Errorf("release %q is not deployed after operation", rel.Name)
+		return finishReport(opts, rel, nil, fmt.Errorf("release %q is not deployed after operation", rel.Name))
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, opts.Timeout)
 	defer cancel()
 	checks, err := client.Verify(ctx, rel)
 	if err != nil {
-		return fmt.Errorf("verify release after operation: %w", err)
+		return finishReport(opts, rel, nil, fmt.Errorf("verify release after operation: %w", err))
 	}
 
 	failed, warnings := 0, 0
@@ -146,9 +151,12 @@ func verifyAfterOperation(
 		}
 	}
 	if failed > 0 {
-		return fmt.Errorf("verification failed: %d checks failed, %d warnings", failed, warnings)
+		return finishReport(opts, rel, checks, fmt.Errorf("verification failed: %d checks failed, %d warnings", failed, warnings))
+	}
+	if err := finishReport(opts, rel, checks, nil); err != nil {
+		return err
 	}
 
-	reporter.Success(fmt.Sprintf("Verified %d checks, %d warnings", len(checks), warnings))
+	reporter.Success(fmt.Sprintf("Verified %d checks, %d warnings", len(checks)+1, warnings))
 	return nil
 }
