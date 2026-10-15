@@ -42,6 +42,9 @@ func (c *Client) Rollback(
 	if err := c.preflightKubernetesVersion(target.Chart); err != nil {
 		return nil, 0, err
 	}
+	if err := preflightImageRegistries(ctx, releaseManifest(target)); err != nil {
+		return nil, 0, err
+	}
 
 	if err := c.CheckPermissions(
 		ctx,

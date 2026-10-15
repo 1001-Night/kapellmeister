@@ -35,6 +35,9 @@ func (c *Client) Install(
 	if err != nil {
 		return nil, err
 	}
+	if err := preflightImageRegistries(ctx, manifest); err != nil {
+		return nil, err
+	}
 
 	if err := c.CheckPermissions(
 		ctx,

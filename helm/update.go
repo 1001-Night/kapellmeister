@@ -44,6 +44,9 @@ func (c *Client) Update(
 	if err != nil {
 		return nil, err
 	}
+	if err := preflightImageRegistries(ctx, manifest); err != nil {
+		return nil, err
+	}
 
 	get := action.NewGet(c.ActionConfig)
 
