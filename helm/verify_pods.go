@@ -69,6 +69,9 @@ func (c *Client) verifyPods(
 		active := 0
 		for i := range pods.Items {
 			pod := &pods.Items[i]
+			if pod.DeletionTimestamp == nil {
+				active++
+			}
 			key := pod.Namespace + "/" + pod.Name
 			if _, ok := seen[key]; ok {
 				continue
@@ -79,7 +82,6 @@ func (c *Client) verifyPods(
 			if pod.DeletionTimestamp != nil {
 				continue
 			}
-			active++
 			checks = append(checks, checkPod(pod))
 		}
 

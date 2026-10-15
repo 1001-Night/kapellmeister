@@ -171,3 +171,41 @@ func TestVerifyPodsSupportsStatefulSet(t *testing.T) {
 		t.Fatalf("pods = %#v, want %q", pods, pod.Name)
 	}
 }
+
+func TestVerifyPodsCountsSharedPodForEachWorkload(t *testing.T) {
+	selector := &metav1.LabelSelector{MatchLabels: map[string]string{"app": "web"}}
+	resources := helmkube.ResourceList{
+		&resource.Info{
+			Name: "web", Namespace: "test",
+			Object: &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Selector: selector}},
+			Mapping: &meta.RESTMapping{GroupVersionKind: schema.GroupVersionKind{
+				Group: "apps", Version: "v1", Kind: "Deployment",
+			}},
+		},
+		&resource.Info{
+			Name: "web-rs", Namespace: "test",
+			Object: &appsv1.ReplicaSet{Spec: appsv1.ReplicaSetSpec{Selector: selector}},
+			Mapping: &meta.RESTMapping{GroupVersionKind: schema.GroupVersionKind{
+				Group: "apps", Version: "v1", Kind: "ReplicaSet",
+			}},
+		},
+	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "web-pod", Namespace: "test", Labels: selector.MatchLabels},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{{
+				Type: corev1.PodReady, Status: corev1.ConditionTrue,
+			}},
+		},
+	}
+	client := Client{KubeClient: fake.NewSimpleClientset(pod)}
+
+	checks, pods := client.verifyPods(context.Background(), resources)
+	if len(checks) != 1 || checks[0].Name != "pod/web-pod" || checks[0].Status != CheckPassed {
+		t.Fatalf("checks = %#v, want one passed Pod check without missing Pod errors", checks)
+	}
+	if len(pods) != 1 || pods[0].Name != pod.Name {
+		t.Fatalf("pods = %#v, want one shared Pod", pods)
+	}
+}
