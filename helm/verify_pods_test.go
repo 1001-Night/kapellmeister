@@ -80,6 +80,24 @@ func TestCheckPod(t *testing.T) {
 			wantDetail: "CrashLoopBackOff",
 		},
 		{
+			name: "init container crash loop",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "init-crashing"},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					InitContainerStatuses: []corev1.ContainerStatus{{
+						Name:         "init",
+						RestartCount: 3,
+						State: corev1.ContainerState{
+							Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"},
+						},
+					}},
+				},
+			},
+			wantStatus: CheckFailed,
+			wantDetail: "container init: CrashLoopBackOff; restarts=3",
+		},
+		{
 			name: "image pull failure",
 			pod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Name: "no-image"},

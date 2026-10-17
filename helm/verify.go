@@ -142,7 +142,7 @@ func (c *Client) verifyResources(
 			}
 		}
 
-		if resource.Mapping.GroupVersionKind.Kind == "Service" {
+		if check.Status == CheckPassed && resource.Mapping.GroupVersionKind.Kind == "Service" {
 			detail, err := c.verifyServiceEndpoints(ctx, resource)
 			if err != nil {
 				check.Status = CheckFailed
