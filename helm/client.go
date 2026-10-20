@@ -53,8 +53,12 @@ func New(opts config.Options, logger Logger) (*Client, error) {
 	}
 
 	actionConfig := &action.Configuration{RegistryClient: regClient}
+	getter, err := kube.RESTClientGetter(opts)
+	if err != nil {
+		return nil, err
+	}
 	err = actionConfig.Init(
-		kube.RESTClientGetter(opts),
+		getter,
 		opts.Namespace,
 		os.Getenv("HELM_DRIVER"),
 		logger.Printf,

@@ -29,7 +29,30 @@ curl -fsSL https://gitlab.com/1001n/kapellmeister/-/raw/main/install.sh | sh -s 
 
 ## Использование
 
-Вывести установленную версию Kapellmeisterctl, а так же Kubernetes (если обнаружен)
+### Подключение через OpenStack Magnum
+
+Получить kubeconfig по имени или UUID кластера и выполнить команду:
+
+```sh
+kapellmeister version --openstack cluster-name --cloud project-name --clouds-yaml /path/to/clouds.yaml
+kapellmeister install --openstack cluster-name --cloud project-name -f values.example.yaml
+```
+
+`--clouds-yaml` необязателен. Поиск: `OS_CLIENT_CONFIG_FILE`, текущая папка,
+`~/.config/openstack/clouds.yaml`, `/etc/openstack/clouds.yaml`.
+Профиль задаётся через `--cloud` или `OS_CLOUD`. Если профиль не выбран,
+используются `OS_AUTH_URL` и остальные `OS_*`; без них выбирается единственный
+профиль из файла. При нескольких профилях нужно указать имя.
+OpenRC нужно предварительно загрузить командой `source`, скрипт утилита не исполняет.
+
+```sh
+source project-openrc.sh
+kapellmeister verify --openstack cluster-name
+```
+
+### Команды
+
+Вывести установленную версию Kapellmeister, а так же Kubernetes (если обнаружен)
 ```sh
 kapellmeister version [flags: --kubeconfig, --context]
 ```

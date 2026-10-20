@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"gitlab.com/1001n/kapellmeister/config"
 	"gitlab.com/1001n/kapellmeister/ui"
@@ -19,6 +21,12 @@ func Execute() error {
 		Short:         "Утилита для управления приложением",
 		SilenceErrors: true,
 		SilenceUsage:  true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("openstack") && opts.OpenStackCluster == "" {
+				return fmt.Errorf("--openstack requires a cluster name or UUID")
+			}
+			return prepareOpenStack(cmd.Context(), &opts)
+		},
 	}
 	rootCmd.PersistentFlags().BoolVarP(
 		&opts.Verbose,
@@ -39,6 +47,25 @@ func Execute() error {
 		"",
 		"имя контекста kubeconfig",
 	)
+	rootCmd.PersistentFlags().StringVar(
+		&opts.OpenStackCluster,
+		"openstack",
+		"",
+		"получить kubeconfig кластера Magnum по имени или UUID",
+	)
+	rootCmd.PersistentFlags().StringVar(
+		&opts.Cloud,
+		"cloud",
+		"",
+		"профиль OpenStack из clouds.yaml (по умолчанию OS_CLOUD)",
+	)
+	rootCmd.PersistentFlags().StringVar(
+		&opts.CloudsFile,
+		"clouds-yaml",
+		"",
+		"путь к clouds.yaml (по умолчанию стандартный поиск OpenStack)",
+	)
+	rootCmd.MarkFlagsMutuallyExclusive("openstack", "kubeconfig")
 
 	// Регистрация команд (имя функций)
 	rootCmd.AddCommand(
