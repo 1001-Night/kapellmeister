@@ -1,2 +1,142 @@
+nameOverride: ""
+fullnameOverride: ""
+
+imagePullSecrets: []
+
 backend:
   replicaCount: 2
+  image:
+    repository: python
+    tag: 3.13-alpine
+    pullPolicy: IfNotPresent
+  service:
+    port: 8000
+  session:
+    ttlSeconds: 86400
+    cookieSecure: false
+  registration:
+    usernameMinLength: 3
+    usernameMaxLength: 32
+    displayNameMaxLength: 80
+    passwordMinLength: 8
+    passwordMaxLength: 128
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+    readOnlyRootFilesystem: true
+  resources:
+    requests:
+      cpu: 25m
+      memory: 48Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: nginx
+    tag: 1.27-alpine
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+    targetPort: 8080
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 101
+    fsGroup: 101
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+    readOnlyRootFilesystem: true
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+redis:
+  image:
+    repository: redis
+    tag: 7.4-alpine
+    pullPolicy: IfNotPresent
+  service:
+    port: 6379
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+    readOnlyRootFilesystem: true
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+secrets:
+  existingSecret: ""
+  redisPassword: ""
+  sessionSecret: ""
+
+rbac:
+  create: true
+
+ingress:
+  enabled: true
+  className: nginx
+  host: auth-demo.local
+  annotations: {}
+  tls:
+    enabled: false
+    secretName: ""
+
+networkPolicy:
+  enabled: true
+  ingressController:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: ingress-nginx
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: ingress-nginx
+  dns:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kube-system
+    podSelector: {}
+  kubernetesApi:
+    enabled: true
+    ports:
+      - 443
+      - 6443
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Только для старых чартов 0.5.0>:
+# namespace:
+#   create: false
